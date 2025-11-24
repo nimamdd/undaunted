@@ -1,13 +1,13 @@
 #include <QApplication>
-#include <QWidget>
+#include "ui/SplashScreen.h"
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    QWidget window;
-    window.setWindowTitle("Qt Hello");
-    window.resize(400, 300);
+    SplashScreen window;
+    window.setWindowTitle("Undaunted - Splash");
+    window.resize(1000, 720);
     window.show();
 
     return app.exec();

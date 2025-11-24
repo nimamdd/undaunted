@@ -14,6 +14,9 @@ find_package(Qt6 COMPONENTS Widgets REQUIRED)
 
 add_executable(QtHello
     main.cpp
+    src/ui/SplashScreen.cpp
+    src/ui/SplashScreen.h
 )
 
+target_include_directories(QtHello PRIVATE src)
 target_link_libraries(QtHello PRIVATE Qt6::Widgets)
