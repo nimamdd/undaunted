@@ -16,6 +16,10 @@ add_executable(QtHello
     main.cpp
     src/ui/SplashScreen.cpp
     src/ui/SplashScreen.h
+    src/ui/LoginScreen.cpp
+    src/ui/LoginScreen.h
+    src/controllers/Navigation.cpp
+    src/controllers/Navigation.h
 )
 
 target_include_directories(QtHello PRIVATE src)
