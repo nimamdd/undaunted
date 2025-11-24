@@ -1,0 +1,14 @@
+[
+{
+  "directory": "/Users/nimamokaram/VsCode/undaunted/build",
+  "command": "/usr/bin/clang++ -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -I/Users/nimamokaram/VsCode/undaunted/build/QtHello_autogen/include -isystem /opt/homebrew/opt/qt/lib/QtWidgets.framework/Headers -iframework /opt/homebrew/opt/qt/lib -isystem /opt/homebrew/opt/qt/lib/QtCore.framework/Headers -isystem /opt/homebrew/opt/qt/share/qt/mkspecs/macx-clang -isystem /opt/homebrew/opt/qt/include -isystem /opt/homebrew/opt/qt/lib/QtGui.framework/Headers -g -std=gnu++17 -arch arm64 -o CMakeFiles/QtHello.dir/QtHello_autogen/mocs_compilation.cpp.o -c /Users/nimamokaram/VsCode/undaunted/build/QtHello_autogen/mocs_compilation.cpp",
+  "file": "/Users/nimamokaram/VsCode/undaunted/build/QtHello_autogen/mocs_compilation.cpp",
+  "output": "CMakeFiles/QtHello.dir/QtHello_autogen/mocs_compilation.cpp.o"
+},
+{
+  "directory": "/Users/nimamokaram/VsCode/undaunted/build",
+  "command": "/usr/bin/clang++ -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -I/Users/nimamokaram/VsCode/undaunted/build/QtHello_autogen/include -isystem /opt/homebrew/opt/qt/lib/QtWidgets.framework/Headers -iframework /opt/homebrew/opt/qt/lib -isystem /opt/homebrew/opt/qt/lib/QtCore.framework/Headers -isystem /opt/homebrew/opt/qt/share/qt/mkspecs/macx-clang -isystem /opt/homebrew/opt/qt/include -isystem /opt/homebrew/opt/qt/lib/QtGui.framework/Headers -g -std=gnu++17 -arch arm64 -o CMakeFiles/QtHello.dir/main.cpp.o -c /Users/nimamokaram/VsCode/undaunted/main.cpp",
+  "file": "/Users/nimamokaram/VsCode/undaunted/main.cpp",
+  "output": "CMakeFiles/QtHello.dir/main.cpp.o"
+}
+]
