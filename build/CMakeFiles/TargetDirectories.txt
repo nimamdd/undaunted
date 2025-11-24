@@ -1,0 +1,5 @@
+/Users/nimamokaram/VsCode/undaunted/build/CMakeFiles/QtHello.dir
+/Users/nimamokaram/VsCode/undaunted/build/CMakeFiles/edit_cache.dir
+/Users/nimamokaram/VsCode/undaunted/build/CMakeFiles/rebuild_cache.dir
+/Users/nimamokaram/VsCode/undaunted/build/CMakeFiles/QtHello_autogen_timestamp_deps.dir
+/Users/nimamokaram/VsCode/undaunted/build/CMakeFiles/QtHello_autogen.dir
