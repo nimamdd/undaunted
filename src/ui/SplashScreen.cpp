@@ -16,7 +16,8 @@
 
 namespace
 {
-const char *kSplashImage = "assets/splash.png";
+const char *kSplashImagePrimary = "assets/photos/splash.png";
+const char *kSplashImageAlt = "assets/photos/image.png";
 }
 
 SplashScreen::SplashScreen(QWidget *parent)
@@ -80,12 +81,14 @@ void SplashScreen::setupStyles()
 
 void SplashScreen::loadHeroImage()
 {
+    const QString baseDir = QCoreApplication::applicationDirPath();
     const QStringList candidates = {
-        QCoreApplication::applicationDirPath() + QLatin1Char('/') + QLatin1String(kSplashImage),                // next to exe
-        QDir(QCoreApplication::applicationDirPath()).filePath("../src/assets/splash.png"),                      // build dir
-        QDir(QCoreApplication::applicationDirPath()).filePath("../../src/assets/splash.png"),                   // when running from build/subdir
-        QDir::currentPath() + QLatin1String("/src/assets/splash.png"),                                          // repo root as cwd
-        QDir::currentPath() + QLatin1String("/assets/splash.png")                                               // cwd/assets
+        baseDir + QLatin1Char('/') + QLatin1String(kSplashImagePrimary),
+        QDir(baseDir).filePath("../src/assets/photos/splash.png"),
+        QDir::currentPath() + QLatin1String("/src/assets/photos/splash.png"),
+        baseDir + QLatin1Char('/') + QLatin1String(kSplashImageAlt),
+        QDir(baseDir).filePath("../src/assets/photos/image.png"),
+        QDir::currentPath() + QLatin1String("/src/assets/photos/image.png")
     };
 
     for (const QString &path : candidates) {
