@@ -20,6 +20,8 @@ add_executable(QtHello
     src/ui/LoginScreen.h
     src/controllers/Navigation.cpp
     src/controllers/Navigation.h
+    src/ui/BoardView.cpp
+    src/ui/BoardView.h
 )
 
 target_include_directories(QtHello PRIVATE src)

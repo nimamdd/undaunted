@@ -18,8 +18,8 @@
 namespace
 {
 const QString kSpecialChars = R"(!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?)";
-const char *kBackgroundImagePrimary = "assets/login.jpg";
-const char *kBackgroundImageAlt = "assets/image.png"; // fallback to user-provided asset name
+const char *kBackgroundImagePrimary = "assets/photos/login.jpg";
+const char *kBackgroundImageAlt = "assets/photos/image.png";
 }
 
 LoginScreen::LoginScreen(QWidget *parent)
@@ -285,8 +285,39 @@ QString LoginScreen::openMapDialog() const
     auto *layout = new QVBoxLayout(&dialog);
     auto *label = new QLabel(tr("Choose a battlefield:"), &dialog);
     auto *list = new QListWidget(&dialog);
-    list->addItems({tr("Normandy - Omaha"), tr("North Africa"), tr("Stalingrad"), tr("Sicily")});
-    list->setCurrentRow(0);
+
+    const QString base = QCoreApplication::applicationDirPath();
+    const QStringList dirs = {
+        base + QLatin1String("/assets/maps"),
+        QDir(base).filePath("../src/assets/maps"),
+        QDir::currentPath() + QLatin1String("/src/assets/maps"),
+        QDir::currentPath() + QLatin1String("/assets/maps")
+    };
+
+    QStringList added;
+    for (const QString &dirPath : dirs) {
+        QDir dir(dirPath);
+        if (!dir.exists()) continue;
+        const QStringList files = dir.entryList(QStringList() << "*.txt", QDir::Files, QDir::Name);
+        for (const QString &f : files) {
+            const QString abs = dir.filePath(f);
+            QString canon = QFileInfo(abs).canonicalFilePath();
+            if (canon.isEmpty()) {
+                canon = QFileInfo(abs).absoluteFilePath();
+            }
+            if (added.contains(canon)) continue;
+            added << canon;
+            auto *item = new QListWidgetItem(f, list);
+            item->setData(Qt::UserRole, canon);
+        }
+    }
+
+    if (list->count() == 0) {
+        auto *empty = new QListWidgetItem(tr("No map files found"), list);
+        empty->setFlags(Qt::NoItemFlags);
+    } else {
+        list->setCurrentRow(0);
+    }
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
     layout->addWidget(label);
@@ -297,7 +328,7 @@ QString LoginScreen::openMapDialog() const
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 
     if (dialog.exec() == QDialog::Accepted && list->currentItem()) {
-        return list->currentItem()->text();
+        return list->currentItem()->data(Qt::UserRole).toString();
     }
 
     return {};
@@ -337,17 +368,14 @@ void LoginScreen::handleInputChanged()
 
 void LoginScreen::loadBackground()
 {
+    const QString baseDir = QCoreApplication::applicationDirPath();
     const QStringList candidates = {
-        QCoreApplication::applicationDirPath() + QLatin1Char('/') + QLatin1String(kBackgroundImagePrimary),
-        QDir(QCoreApplication::applicationDirPath()).filePath("../src/assets/login.jpg"),
-        QDir(QCoreApplication::applicationDirPath()).filePath("../../src/assets/login.jpg"),
-        QDir::currentPath() + QLatin1String("/src/assets/login.jpg"),
-        QDir::currentPath() + QLatin1String("/assets/login.jpg"),
-        QCoreApplication::applicationDirPath() + QLatin1Char('/') + QLatin1String(kBackgroundImageAlt),
-        QDir(QCoreApplication::applicationDirPath()).filePath("../src/assets/image.png"),
-        QDir(QCoreApplication::applicationDirPath()).filePath("../../src/assets/image.png"),
-        QDir::currentPath() + QLatin1String("/src/assets/image.png"),
-        QDir::currentPath() + QLatin1String("/assets/image.png")
+        baseDir + QLatin1Char('/') + QLatin1String(kBackgroundImagePrimary),
+        QDir(baseDir).filePath("../src/assets/photos/login.jpg"),
+        QDir::currentPath() + QLatin1String("/src/assets/photos/login.jpg"),
+        baseDir + QLatin1Char('/') + QLatin1String(kBackgroundImageAlt),
+        QDir(baseDir).filePath("../src/assets/photos/image.png"),
+        QDir::currentPath() + QLatin1String("/src/assets/photos/image.png")
     };
 
     for (const QString &path : candidates) {

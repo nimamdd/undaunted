@@ -2,9 +2,12 @@
 
 #include <QStackedWidget>
 #include <QMessageBox>
+#include <QDir>
+#include <QFileInfo>
 
 #include "../ui/SplashScreen.h"
 #include "../ui/LoginScreen.h"
+#include "../ui/BoardView.h"
 
 Navigation::Navigation(QObject *parent)
     : QObject(parent)
@@ -32,9 +35,12 @@ void Navigation::setupConnections()
         login->setFocus();
     });
 
-    connect(login, &LoginScreen::startRequested, this, [](const QString &p1, const QString &p2, const QString &map) {
-        QMessageBox::information(nullptr, QObject::tr("Battle ready"),
-                                 QObject::tr("Players: %1 vs %2\nMap: %3").arg(p1, p2, map));
+    connect(login, &LoginScreen::startRequested, this, [this](const QString &p1, const QString &p2, const QString &map) {
+        auto *boardView = new BoardView(p1, p2, map);
+        boardView->setWindowTitle("Undaunted - Battle");
+        boardView->resize(1200, 800);
+        boardView->show();
+        stack->hide();
     });
 }
 
