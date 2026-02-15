@@ -14,6 +14,8 @@ find_package(Qt6 COMPONENTS Widgets REQUIRED)
 
 add_executable(QtHello
     main.cpp
+    src/game/GameModel.cpp
+    src/game/GameModel.h
     src/ui/SplashScreen.cpp
     src/ui/SplashScreen.h
     src/ui/LoginScreen.cpp
