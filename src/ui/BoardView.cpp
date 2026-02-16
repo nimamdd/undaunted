@@ -7,6 +7,8 @@
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QFileInfo>
+#include <QDir>
+#include <QCoreApplication>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -49,9 +51,50 @@ void BoardView::clear()
 
 bool BoardView::loadFromFile(const QString &path, QString &errorMessage)
 {
-    QFile file(path);
+    QString boardPath = path;
+
+    QFile scenarioProbe(path);
+    if (scenarioProbe.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream probeStream(&scenarioProbe);
+        QString firstNonEmpty;
+        while (!probeStream.atEnd()) {
+            firstNonEmpty = probeStream.readLine().trimmed();
+            if (!firstNonEmpty.isEmpty()) {
+                break;
+            }
+        }
+
+        const bool looksLikeScenario = !firstNonEmpty.startsWith('|');
+        if (looksLikeScenario) {
+            const QString fileName = QFileInfo(path).fileName();
+            const QString baseDir = QCoreApplication::applicationDirPath();
+            const QStringList candidates = {
+                baseDir + QLatin1String("/assets/boards/") + fileName,
+                QDir(baseDir).filePath(QStringLiteral("../src/assets/boards/") + fileName),
+                QDir::currentPath() + QLatin1String("/src/assets/boards/") + fileName,
+                QDir::currentPath() + QLatin1String("/assets/boards/") + fileName
+            };
+
+            QString resolved;
+            for (const QString &candidate : candidates) {
+                if (QFileInfo::exists(candidate)) {
+                    resolved = candidate;
+                    break;
+                }
+            }
+
+            if (resolved.isEmpty()) {
+                errorMessage = tr("Scenario selected but matching board file was not found for: %1").arg(fileName);
+                return false;
+            }
+
+            boardPath = resolved;
+        }
+    }
+
+    QFile file(boardPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        errorMessage = tr("Cannot open map file: %1").arg(path);
+        errorMessage = tr("Cannot open map file: %1").arg(boardPath);
         return false;
     }
 
@@ -90,11 +133,11 @@ bool BoardView::loadFromFile(const QString &path, QString &errorMessage)
     }
 
     if (rows.isEmpty()) {
-        errorMessage = tr("Map file is empty or invalid: %1").arg(path);
+        errorMessage = tr("Map file is empty or invalid: %1").arg(boardPath);
         return false;
     }
 
-    mapPath = QFileInfo(path).absoluteFilePath();
+    mapPath = QFileInfo(boardPath).absoluteFilePath();
     update();
     return true;
 }

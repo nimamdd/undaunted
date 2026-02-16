@@ -2,6 +2,7 @@
 
 #include "../board/BoardGraph.h"
 #include "../model/Init.h"
+#include "../rules/Victory.h"
 
 #include <QFile>
 #include <QStringList>
@@ -249,8 +250,8 @@ bool loadScenarioFromFile(GameState &state, const QString &path, QString &errorM
         return false;
     }
 
+    updateGameStatus(state);
     return true;
 }
 
 } // namespace model
-

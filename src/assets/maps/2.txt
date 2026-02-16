@@ -1,7 +1,25 @@
-|A01:1  |A02:0  |A03:2  |A04:1  |A05:0  |A06:2  |A07:1  |
-    |B01:2  |B02:1  |B03:0  |B04:2  |B05:1  |B06:0  |
-|A08:0  |A09:1  |A10:2  |A11:0  |A12:1  |A13:2  |A14:0  |
-    |B07:1  |B08:2  |B09:0  |B10:1  |B11:2  |B12:0  |
-|A15:2  |A16:0  |A17:1  |A18:2  |A19:0  |A20:1  |A21:2  |
-    |B13:0  |B14:1  |B15:2  |B16:0  |B17:1  |B18:2  |
-|A22:1  |A23:2  |A24:0  |A25:1  |A26:2  |A27:0  |A28:1  |
+A04:A,Sniper
+A05:A,Seargeant
+A06:A,Scout
+B01:B,Sniper
+A08:B,Seargeant
+B07:B,Scout
+A01:A,Mark
+A02:A,Mark
+A03:A,Mark
+A04:A,Mark
+A05:A,Mark
+A06:A,Mark
+A07:A,Mark
+A01:B,Mark
+A02:B,Mark
+B01:B,Mark
+B02:B,Mark
+A08:B,Mark
+B07:B,Mark
+A15:B,Mark
+B13:B,Mark
+A22:B,Mark
+A02:A,Control
+A01:A,Control
+

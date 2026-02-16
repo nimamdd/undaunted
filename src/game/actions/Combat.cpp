@@ -2,6 +2,7 @@
 
 #include "../board/BoardGraph.h"
 #include "../model/Init.h"
+#include "../rules/Victory.h"
 #include "../turn/TurnSystem.h"
 
 #include <QRandomGenerator>
@@ -238,6 +239,7 @@ AttackResult attack(GameState &state,
         result.targetEliminated = true;
     }
 
+    updateGameStatus(state);
     return result;
 }
 
@@ -259,4 +261,3 @@ AttackResult attackCurrentPlayer(GameState &state,
 }
 
 } // namespace model
-

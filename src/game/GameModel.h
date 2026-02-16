@@ -6,5 +6,6 @@
 #include "actions/TacticalActions.h"
 #include "model/Init.h"
 #include "model/Types.h"
+#include "rules/Victory.h"
 #include "scenario/ScenarioLoader.h"
 #include "turn/TurnSystem.h"

@@ -2,6 +2,7 @@
 
 #include "../board/BoardGraph.h"
 #include "../model/Init.h"
+#include "../rules/Victory.h"
 
 namespace model {
 
@@ -179,6 +180,7 @@ bool sergeantControl(GameState &state, PlayerId owner, QString &errorMessage)
     const AgentState *sergeant = findAgent(*player, AgentType::Sergeant);
     CellNode *cell = findCell(state.board, sergeant->cellId);
     cell->controlledBy = owner;
+    updateGameStatus(state);
     return true;
 }
 
@@ -227,6 +229,7 @@ bool sergeantRelease(GameState &state, PlayerId owner, QString &errorMessage)
     const AgentState *sergeant = findAgent(*player, AgentType::Sergeant);
     CellNode *cell = findCell(state.board, sergeant->cellId);
     cell->controlledBy = PlayerId::None;
+    updateGameStatus(state);
     return true;
 }
 
@@ -239,4 +242,3 @@ bool sergeantReleaseCurrentPlayer(GameState &state, QString &errorMessage)
 }
 
 } // namespace model
-
