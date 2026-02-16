@@ -432,7 +432,7 @@ void BoardView::updateHud()
         }
     }
 
-    endTurnButton->setEnabled(inProgress && gameState.turn.hasActiveCard);
+    endTurnButton->setEnabled(inProgress && gameState.turn.hasActiveCard && actionUsedThisTurn);
 }
 
 void BoardView::handleMoveAction()
@@ -554,6 +554,13 @@ void BoardView::handleSergeantReleaseAction()
 
 void BoardView::handleEndTurn()
 {
+    if (gameState.status == model::GameStatus::InProgress &&
+        gameState.turn.hasActiveCard &&
+        !actionUsedThisTurn) {
+        setActionMessage(tr("You must perform an action before ending the turn."), true);
+        return;
+    }
+
     QString error;
     if (!model::endTurn(gameState, error)) {
         setActionMessage(error, true);
