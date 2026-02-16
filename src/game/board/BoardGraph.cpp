@@ -78,6 +78,7 @@ bool loadBoardFromMapFile(BoardState &board, const QString &path, QString &error
             node->shield = m.captured(2).toInt();
             node->row = rowIndex;
             node->col = colIndex;
+            node->offset = offset;
 
             CellNode *raw = node.get();
             board.cells.push_back(std::move(node));

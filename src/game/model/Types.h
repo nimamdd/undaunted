@@ -50,6 +50,7 @@ struct CellNode {
     int shield{0};
     int row{0};
     int col{0};
+    bool offset{false};
     QVector<CellNode *> neighbors;
 
     bool markedByA{false};
@@ -88,4 +89,3 @@ struct GameState {
 };
 
 } // namespace model
-

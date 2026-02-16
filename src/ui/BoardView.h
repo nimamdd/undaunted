@@ -1,53 +1,89 @@
 #pragma once
+
 #include <QWidget>
-#include <QVector>
-#include <QString>
 #include <QColor>
+#include <QHash>
+#include <QPolygonF>
+
+#include "game/GameModel.h"
 
 class QLabel;
 class QPushButton;
+class QWidget;
+class QPaintEvent;
+class QMouseEvent;
 
 class BoardView : public QWidget
 {
 public:
-    struct Cell {
-        QString id;
-        int value;
-        bool offset;
-        int row;
-        int col;
-    };
-
     explicit BoardView(const QString &playerOne,
                        const QString &playerTwo,
-                       const QString &mapPath,
+                       const QString &scenarioPath,
                        QWidget *parent = nullptr);
-
-    void clear();
-    bool loadFromFile(const QString &path, QString &errorMessage);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
 
 private:
     void setupUi();
     void setupStyles();
+    void initializeGame();
+    QString resolveBoardPath(const QString &inputPath, bool &isScenario, QString &errorMessage) const;
+
+    void updateHud();
+    void setActionMessage(const QString &message, bool isError);
+    QString playerDisplayName(model::PlayerId id) const;
+    QString gameStatusText() const;
+    bool currentTurnAgent(model::AgentType &typeOut, QString &errorMessage) const;
+    bool requireSelectedCell(QString &errorMessage) const;
+
+    void handleMoveAction();
+    void handleAttackAction();
+    void handleScoutMarkAction();
+    void handleSergeantControlAction();
+    void handleSergeantReleaseAction();
+    void handleEndTurn();
+
+    QRectF boardAreaRect() const;
+    QPolygonF hexPolygon(const QPointF &center, double radius) const;
+    QColor shieldColor(int shield) const;
+    QString pieceShortName(model::AgentType type) const;
 
 private:
+    model::GameState gameState{};
+
     QString playerOneName;
     QString playerTwoName;
-    QString mapPath;
+    QString scenarioPath;
+    QString boardPath;
+    QString selectedCellId;
 
-    QVector<QVector<Cell>> rows;
-    qsizetype maxCols = 0;
+    bool actionUsedThisTurn{false};
+    bool gameLoaded{false};
 
-    QLabel *titleLabel    = nullptr;
-    QLabel *p1Label       = nullptr;
-    QLabel *p2Label       = nullptr;
-    QPushButton *menuButton    = nullptr;
+    QLabel *titleLabel = nullptr;
+    QLabel *turnLabel = nullptr;
+    QLabel *cardLabel = nullptr;
+    QLabel *statusLabel = nullptr;
+    QLabel *selectedCellLabel = nullptr;
+    QLabel *actionResultLabel = nullptr;
+    QLabel *p1Label = nullptr;
+    QLabel *p2Label = nullptr;
+    QPushButton *menuButton = nullptr;
+    QPushButton *moveButton = nullptr;
+    QPushButton *attackButton = nullptr;
+    QPushButton *markButton = nullptr;
+    QPushButton *controlButton = nullptr;
+    QPushButton *releaseButton = nullptr;
     QPushButton *endTurnButton = nullptr;
+    QWidget *sidePanel = nullptr;
+
+    QHash<QString, QPolygonF> cellPolygons;
 
     QColor friendlyColor;
     QColor neutralColor;
     QColor hostileColor;
+    QColor playerAColor;
+    QColor playerBColor;
 };

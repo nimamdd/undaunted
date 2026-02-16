@@ -37,8 +37,14 @@ void Navigation::setupConnections()
 
     connect(login, &LoginScreen::startRequested, this, [this](const QString &p1, const QString &p2, const QString &map) {
         auto *boardView = new BoardView(p1, p2, map);
+        boardView->setAttribute(Qt::WA_DeleteOnClose, true);
         boardView->setWindowTitle("Undaunted - Battle");
         boardView->resize(1200, 800);
+        connect(boardView, &QObject::destroyed, this, [this]() {
+            stack->show();
+            stack->setCurrentWidget(login);
+            login->setFocus();
+        });
         boardView->show();
         stack->hide();
     });

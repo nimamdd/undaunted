@@ -1,396 +1,813 @@
 #include "BoardView.h"
 
-#include <QPainter>
-#include <QPaintEvent>
-#include <QPainterPath>
-#include <QFile>
-#include <QTextStream>
-#include <QRegularExpression>
-#include <QFileInfo>
-#include <QDir>
 #include <QCoreApplication>
-#include <QVBoxLayout>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLinearGradient>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QPaintEvent>
 #include <QPushButton>
-#include <QPointF>
-#include <cmath>
+#include <QRadialGradient>
+#include <QStyle>
+#include <QStringList>
+#include <QTextStream>
+#include <QVBoxLayout>
+
 #include <algorithm>
+#include <cmath>
 
 BoardView::BoardView(const QString &playerOne,
                      const QString &playerTwo,
-                     const QString &map,
+                     const QString &scenario,
                      QWidget *parent)
     : QWidget(parent),
-      mapPath(map),
       playerOneName(playerOne.isEmpty() ? tr("PLAYER 1") : playerOne),
-      playerTwoName(playerTwo.isEmpty() ? tr("PLAYER 2") : playerTwo)
+      playerTwoName(playerTwo.isEmpty() ? tr("PLAYER 2") : playerTwo),
+      scenarioPath(scenario)
 {
     friendlyColor = QColor(103, 135, 80);
-    neutralColor  = QColor(230, 221, 187);
-    hostileColor  = QColor(170, 104, 52);
+    neutralColor = QColor(230, 221, 187);
+    hostileColor = QColor(170, 104, 52);
+    playerAColor = QColor(86, 149, 224);
+    playerBColor = QColor(227, 123, 102);
 
-    setMinimumSize(1100, 720);
+    setMinimumSize(1200, 760);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setMouseTracking(true);
 
     setupUi();
     setupStyles();
-
-    if (!mapPath.isEmpty()) {
-        QString err;
-        loadFromFile(mapPath, err);
-    }
-}
-
-void BoardView::clear()
-{
-    rows.clear();
-    maxCols = 0;
-    mapPath.clear();
-}
-
-bool BoardView::loadFromFile(const QString &path, QString &errorMessage)
-{
-    QString boardPath = path;
-
-    QFile scenarioProbe(path);
-    if (scenarioProbe.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream probeStream(&scenarioProbe);
-        QString firstNonEmpty;
-        while (!probeStream.atEnd()) {
-            firstNonEmpty = probeStream.readLine().trimmed();
-            if (!firstNonEmpty.isEmpty()) {
-                break;
-            }
-        }
-
-        const bool looksLikeScenario = !firstNonEmpty.startsWith('|');
-        if (looksLikeScenario) {
-            const QString fileName = QFileInfo(path).fileName();
-            const QString baseDir = QCoreApplication::applicationDirPath();
-            const QStringList candidates = {
-                baseDir + QLatin1String("/assets/boards/") + fileName,
-                QDir(baseDir).filePath(QStringLiteral("../src/assets/boards/") + fileName),
-                QDir::currentPath() + QLatin1String("/src/assets/boards/") + fileName,
-                QDir::currentPath() + QLatin1String("/assets/boards/") + fileName
-            };
-
-            QString resolved;
-            for (const QString &candidate : candidates) {
-                if (QFileInfo::exists(candidate)) {
-                    resolved = candidate;
-                    break;
-                }
-            }
-
-            if (resolved.isEmpty()) {
-                errorMessage = tr("Scenario selected but matching board file was not found for: %1").arg(fileName);
-                return false;
-            }
-
-            boardPath = resolved;
-        }
-    }
-
-    QFile file(boardPath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        errorMessage = tr("Cannot open map file: %1").arg(boardPath);
-        return false;
-    }
-
-    clear();
-
-    QTextStream in(&file);
-    int rowIndex = 0;
-    QRegularExpression tokenRe("\\|\\s*([A-Z]\\d{2}):([0-2])");
-
-    while (!in.atEnd()) {
-        const QString line = in.readLine();
-        if (line.trimmed().isEmpty())
-            continue;
-
-        const bool isOffset = line.startsWith(" ");
-        QVector<Cell> rowCells;
-
-        auto it = tokenRe.globalMatch(line);
-        int colIndex = 0;
-        while (it.hasNext()) {
-            const auto m = it.next();
-            Cell cell;
-            cell.id = m.captured(1);
-            cell.value = m.captured(2).toInt();
-            cell.offset = isOffset;
-            cell.col = colIndex++;
-            cell.row = rowIndex;
-            rowCells.append(cell);
-        }
-
-        if (!rowCells.isEmpty()) {
-            maxCols = std::max(maxCols, static_cast<qsizetype>(rowCells.size()));
-            rows.append(rowCells);
-            ++rowIndex;
-        }
-    }
-
-    if (rows.isEmpty()) {
-        errorMessage = tr("Map file is empty or invalid: %1").arg(boardPath);
-        return false;
-    }
-
-    mapPath = QFileInfo(boardPath).absoluteFilePath();
-    update();
-    return true;
+    initializeGame();
 }
 
 void BoardView::setupUi()
 {
     auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(24, 24, 24, 24);
-    root->setSpacing(0);
+    root->setContentsMargins(22, 18, 22, 18);
+    root->setSpacing(10);
 
-    titleLabel = new QLabel("UNDAUNTED", this);
-    titleLabel->setObjectName("Title");
+    titleLabel = new QLabel(tr("UNDAUNTED"), this);
+    titleLabel->setObjectName("TitleLabel");
     titleLabel->setAlignment(Qt::AlignHCenter);
     root->addWidget(titleLabel);
 
-    root->addStretch(1);
+    auto *body = new QHBoxLayout;
+    body->setSpacing(18);
+    body->addStretch(1);
 
-    auto *bottomRow = new QHBoxLayout;
-    bottomRow->setSpacing(24);
+    sidePanel = new QWidget(this);
+    sidePanel->setObjectName("SidePanel");
+    sidePanel->setFixedWidth(300);
+    auto *panelLayout = new QVBoxLayout(sidePanel);
+    panelLayout->setContentsMargins(14, 14, 14, 14);
+    panelLayout->setSpacing(8);
 
+    turnLabel = new QLabel(tr("Turn"), sidePanel);
+    turnLabel->setObjectName("MetaLabel");
+    cardLabel = new QLabel(tr("Card"), sidePanel);
+    cardLabel->setObjectName("MetaLabel");
+    statusLabel = new QLabel(tr("Status"), sidePanel);
+    statusLabel->setObjectName("StatusLabel");
+    selectedCellLabel = new QLabel(tr("Selected: -"), sidePanel);
+    selectedCellLabel->setObjectName("MetaLabel");
+    selectedCellLabel->setWordWrap(true);
+
+    panelLayout->addWidget(turnLabel);
+    panelLayout->addWidget(cardLabel);
+    panelLayout->addWidget(statusLabel);
+    panelLayout->addWidget(selectedCellLabel);
+    panelLayout->addSpacing(6);
+
+    auto makeButton = [&](const QString &text, const QString &obj) {
+        auto *btn = new QPushButton(text, sidePanel);
+        btn->setObjectName(obj);
+        btn->setCursor(Qt::PointingHandCursor);
+        btn->setMinimumHeight(38);
+        panelLayout->addWidget(btn);
+        return btn;
+    };
+
+    moveButton = makeButton(tr("Move"), "ActionButton");
+    attackButton = makeButton(tr("Attack"), "ActionButton");
+    markButton = makeButton(tr("Scout Mark"), "ActionButton");
+    controlButton = makeButton(tr("Sergeant Control"), "ActionButton");
+    releaseButton = makeButton(tr("Sergeant Release"), "ActionButton");
+
+    endTurnButton = makeButton(tr("End Turn"), "EndTurnButton");
+    menuButton = makeButton(tr("Back To Menu"), "MenuButton");
+
+    panelLayout->addSpacing(8);
+    actionResultLabel = new QLabel(tr("Choose an action."), sidePanel);
+    actionResultLabel->setObjectName("ResultOk");
+    actionResultLabel->setWordWrap(true);
+    panelLayout->addWidget(actionResultLabel);
+    panelLayout->addStretch(1);
+
+    body->addWidget(sidePanel, 0, Qt::AlignTop | Qt::AlignRight);
+    root->addLayout(body, 1);
+
+    auto *bottom = new QHBoxLayout;
+    bottom->setSpacing(12);
     p1Label = new QLabel(playerOneName, this);
-    p1Label->setObjectName("PlayerLabel");
-    bottomRow->addWidget(p1Label, 0, Qt::AlignLeft | Qt::AlignVCenter);
-
-    bottomRow->addStretch(1);
-
-    auto *btns = new QHBoxLayout;
-    btns->setSpacing(16);
-
-    menuButton = new QPushButton("MENU", this);
-    menuButton->setObjectName("MenuButton");
-    btns->addWidget(menuButton);
-
-    endTurnButton = new QPushButton("END TURN", this);
-    endTurnButton->setObjectName("EndButton");
-    btns->addWidget(endTurnButton);
-
-    bottomRow->addLayout(btns);
-
-    bottomRow->addStretch(1);
-
+    p1Label->setObjectName("PlayerInfo");
     p2Label = new QLabel(playerTwoName, this);
-    p2Label->setObjectName("PlayerLabel");
-    bottomRow->addWidget(p2Label, 0, Qt::AlignRight | Qt::AlignVCenter);
+    p2Label->setObjectName("PlayerInfo");
+    p2Label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    bottom->addWidget(p1Label, 1);
+    bottom->addWidget(p2Label, 1);
+    root->addLayout(bottom);
 
-    root->addLayout(bottomRow);
+    connect(moveButton, &QPushButton::clicked, this, &BoardView::handleMoveAction);
+    connect(attackButton, &QPushButton::clicked, this, &BoardView::handleAttackAction);
+    connect(markButton, &QPushButton::clicked, this, &BoardView::handleScoutMarkAction);
+    connect(controlButton, &QPushButton::clicked, this, &BoardView::handleSergeantControlAction);
+    connect(releaseButton, &QPushButton::clicked, this, &BoardView::handleSergeantReleaseAction);
+    connect(endTurnButton, &QPushButton::clicked, this, &BoardView::handleEndTurn);
+    connect(menuButton, &QPushButton::clicked, this, [this]() { close(); });
 }
 
 void BoardView::setupStyles()
 {
     setStyleSheet(R"(
-        QLabel#Title {
-            color: #f3e8ce;
-            font-size: 40px;
+        QLabel#TitleLabel {
+            color: #f2ead2;
+            font-size: 42px;
             font-weight: 900;
-            letter-spacing: 4px;
+            letter-spacing: 6px;
         }
-        QLabel#PlayerLabel {
-            color: #f3e8ce;
-            font-size: 16px;
+        QWidget#SidePanel {
+            background: rgba(11, 15, 22, 0.83);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+        }
+        QLabel#MetaLabel {
+            color: #d6dce8;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 2px 0;
+        }
+        QLabel#StatusLabel {
+            color: #f4d798;
+            font-size: 14px;
+            font-weight: 800;
+            padding: 4px 0;
+        }
+        QLabel#PlayerInfo {
+            color: #f6f0df;
+            font-size: 14px;
             font-weight: 700;
         }
-        QPushButton#MenuButton,
-        QPushButton#EndButton {
-            min-width: 140px;
-            padding: 10px 20px;
-            font-size: 16px;
+        QPushButton#ActionButton,
+        QPushButton#EndTurnButton,
+        QPushButton#MenuButton {
+            border: none;
+            border-radius: 10px;
+            color: #f6f1e4;
+            font-size: 13px;
             font-weight: 800;
-            border-radius: 8px;
-            border: 2px solid rgba(0,0,0,60);
-            color: #f3e8ce;
+            padding: 9px 12px;
+        }
+        QPushButton#ActionButton {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                        stop:0 #355169, stop:1 #223347);
+        }
+        QPushButton#ActionButton:disabled {
+            background: #4d5964;
+            color: #c8ced6;
+        }
+        QPushButton#EndTurnButton {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                        stop:0 #9b5d31, stop:1 #723c19);
         }
         QPushButton#MenuButton {
-            background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                                        stop:0 #806437, stop:1 #614325);
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                        stop:0 #5b4a34, stop:1 #3d3124);
         }
-        QPushButton#MenuButton:hover {
-            background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                                        stop:0 #8f6f3e, stop:1 #6f4d2b);
+        QLabel#ResultOk {
+            border-radius: 10px;
+            padding: 10px;
+            background: rgba(40, 96, 63, 0.33);
+            color: #dcf7e6;
+            border: 1px solid rgba(129, 217, 169, 0.5);
+            font-size: 12px;
         }
-        QPushButton#EndButton {
-            background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                                        stop:0 #b3532f, stop:1 #8c3c1b);
-        }
-        QPushButton#EndButton:hover {
-            background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                                        stop:0 #c15c34, stop:1 #9a4520);
+        QLabel#ResultErr {
+            border-radius: 10px;
+            padding: 10px;
+            background: rgba(128, 43, 43, 0.33);
+            color: #ffe3de;
+            border: 1px solid rgba(255, 139, 139, 0.5);
+            font-size: 12px;
         }
     )");
 }
 
-void BoardView::paintEvent(QPaintEvent *event)
+QString BoardView::resolveBoardPath(const QString &inputPath, bool &isScenario, QString &errorMessage) const
 {
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing, true);
+    isScenario = false;
 
-    const QRectF area = rect();
-
-    {
-        QLinearGradient bg(area.topLeft(), area.bottomRight());
-        bg.setColorAt(0.0, QColor(27, 44, 24));
-        bg.setColorAt(1.0, QColor(16, 26, 16));
-        p.fillRect(area, bg);
+    QFile probe(inputPath);
+    if (!probe.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        errorMessage = tr("Cannot open selected file: %1").arg(inputPath);
+        return {};
     }
 
-    if (rows.isEmpty()) {
-        p.setPen(QColor(220, 220, 220));
-        p.drawText(area, Qt::AlignCenter, "No map loaded");
-        return;
-    }
-
-    QRectF bar(area.left(), area.top() + 60, area.width(), 4);
-    p.fillRect(bar, QColor(121, 74, 34));
-
-    QRectF panel = area.adjusted(70, 100, -70, -130);
-
-    QLinearGradient panelGrad(panel.topLeft(), panel.bottomRight());
-    panelGrad.setColorAt(0.0, QColor(118, 136, 86));
-    panelGrad.setColorAt(0.5, QColor(149, 162, 103));
-    panelGrad.setColorAt(1.0, QColor(120, 136, 84));
-
-    p.setPen(QPen(QColor(40, 55, 32), 2));
-    p.setBrush(panelGrad);
-    p.drawRoundedRect(panel, 22, 22);
-
-    p.setPen(QPen(QColor(205, 193, 150, 110), 3));
-    QPainterPath rd;
-    rd.moveTo(panel.left() + panel.width() * 0.15,
-              panel.bottom() - panel.height() * 0.15);
-    rd.cubicTo(panel.center().x(), panel.center().y(),
-               panel.center().x() + panel.width() * 0.10,
-               panel.top() + panel.height() * 0.18,
-               panel.right() - panel.width() * 0.15,
-               panel.top() + panel.height() * 0.27);
-    p.drawPath(rd);
-
-    p.setPen(QPen(QColor(80, 110, 60, 90), 2));
-    p.drawEllipse(panel.center(),
-                  panel.width() * 0.18,
-                  panel.height() * 0.18);
-
-    QRectF boardArea = panel.adjusted(34, 26, -34, -26);
-
-    const double sqrt3 = std::sqrt(3.0);
-
-    const double ru = 1.0;
-    const double hexW1 = sqrt3 * ru;
-    const double hexH1 = 2.0 * ru;
-    const double stepX1 = hexW1;
-    const double stepY1 = 1.5 * ru;
-
-    QVector<QVector<QPointF>> centersUnit(rows.size());
-    double minX1 = 1e9, maxX1 = -1e9, minY1 = 1e9, maxY1 = -1e9;
-
-    for (int rIdx = 0; rIdx < rows.size(); ++rIdx) {
-        centersUnit[rIdx].resize(rows[rIdx].size());
-        bool offsetRow = rows[rIdx].isEmpty() ? false : rows[rIdx][0].offset;
-
-        for (int cIdx = 0; cIdx < rows[rIdx].size(); ++cIdx) {
-            double cx1 = cIdx * stepX1 + (offsetRow ? hexW1 / 2.0 : 0.0);
-            double cy1 = rIdx * stepY1;
-            centersUnit[rIdx][cIdx] = QPointF(cx1, cy1);
-
-            if (cx1 < minX1) minX1 = cx1;
-            if (cx1 > maxX1) maxX1 = cx1;
-            if (cy1 < minY1) minY1 = cy1;
-            if (cy1 > maxY1) maxY1 = cy1;
+    QTextStream in(&probe);
+    QString firstNonEmpty;
+    while (!in.atEnd()) {
+        firstNonEmpty = in.readLine().trimmed();
+        if (!firstNonEmpty.isEmpty()) {
+            break;
         }
     }
 
-    double gridWidth1  = (maxX1 - minX1) + hexW1;
-    double gridHeight1 = (maxY1 - minY1) + hexH1;
-
-    if (gridWidth1 <= 0 || gridHeight1 <= 0) {
-        Q_UNUSED(event);
-        return;
+    if (firstNonEmpty.startsWith('|')) {
+        return QFileInfo(inputPath).absoluteFilePath();
     }
 
-    double innerMargin = 10.0;
-    double availW = boardArea.width()  - 2.0 * innerMargin;
-    double availH = boardArea.height() - 2.0 * innerMargin;
-
-    double r = std::max(18.0, std::min(availW / gridWidth1, availH / gridHeight1));
-
-    double hexW = hexW1 * r;
-    double hexH = hexH1 * r;
-
-    double midX1 = (minX1 + maxX1) * 0.5;
-    double midY1 = (minY1 + maxY1) * 0.5;
-
-    QPointF boardCenter = boardArea.center();
-
-    constexpr double kPi = 3.14159265358979323846;
-
-    auto hex = [&](QPointF c) {
-        QPolygonF poly;
-        for (int i = 0; i < 6; ++i) {
-            double ang = (60.0 * i - 30.0) * kPi / 180.0;
-            poly << QPointF(c.x() + r * std::cos(ang),
-                            c.y() + r * std::sin(ang));
-        }
-        return poly;
+    isScenario = true;
+    const QString fileName = QFileInfo(inputPath).fileName();
+    const QString baseDir = QCoreApplication::applicationDirPath();
+    const QStringList candidates = {
+        baseDir + QLatin1String("/assets/boards/") + fileName,
+        QDir(baseDir).filePath(QStringLiteral("../src/assets/boards/") + fileName),
+        QDir::currentPath() + QLatin1String("/src/assets/boards/") + fileName,
+        QDir::currentPath() + QLatin1String("/assets/boards/") + fileName
     };
 
-    QFont idF = p.font();
-    idF.setPointSize(8);
-    idF.setWeight(QFont::DemiBold);
-
-    QFont valF = p.font();
-    valF.setPointSize(11);
-    valF.setWeight(QFont::Bold);
-
-    const QColor outline(255, 255, 255, 90);
-
-    for (int rIdx = 0; rIdx < rows.size(); ++rIdx) {
-        for (int cIdx = 0; cIdx < rows[rIdx].size(); ++cIdx) {
-            const auto &cell = rows[rIdx][cIdx];
-
-            QPointF u = centersUnit[rIdx][cIdx];
-            double cx = boardCenter.x() + (u.x() - midX1) * r;
-            double cy = boardCenter.y() + (u.y() - midY1) * r;
-            QPointF center(cx, cy);
-
-            QColor base =
-                (cell.value == 0) ? neutralColor :
-                (cell.value == 1) ? friendlyColor :
-                                    hostileColor;
-
-            QLinearGradient fg(center + QPointF(0, -r * 0.4),
-                               center + QPointF(0,  r * 0.8));
-            fg.setColorAt(0.0, base.lighter(120));
-            fg.setColorAt(1.0, base.darker(130));
-
-            p.setPen(QPen(outline, 1.4));
-            p.setBrush(fg);
-            p.drawPolygon(hex(center));
-
-            p.setFont(idF);
-            p.setPen(QColor(15, 15, 15));
-            p.drawText(QRectF(center.x() - hexW * 0.5,
-                              center.y() - hexH * 0.5,
-                              hexW, hexH * 0.35),
-                       Qt::AlignCenter, cell.id);
-
-            p.setFont(valF);
-            p.setPen(Qt::white);
-            p.drawText(QRectF(center.x() - hexW * 0.5,
-                              center.y() - hexH * 0.1,
-                              hexW, hexH * 0.45),
-                       Qt::AlignCenter,
-                       QString::number(cell.value));
+    for (const QString &candidate : candidates) {
+        if (QFileInfo::exists(candidate)) {
+            return QFileInfo(candidate).absoluteFilePath();
         }
     }
 
+    errorMessage = tr("Scenario selected but matching board file was not found: %1").arg(fileName);
+    return {};
+}
+
+void BoardView::initializeGame()
+{
+    gameState = model::buildInitialGameState(playerOneName, playerTwoName);
+    gameLoaded = false;
+    actionUsedThisTurn = false;
+    selectedCellId.clear();
+    cellPolygons.clear();
+
+    QString error;
+    bool isScenario = false;
+    boardPath = resolveBoardPath(scenarioPath, isScenario, error);
+    if (boardPath.isEmpty()) {
+        setActionMessage(error, true);
+        updateHud();
+        return;
+    }
+
+    if (!model::loadBoardFromMapFile(gameState.board, boardPath, error)) {
+        setActionMessage(error, true);
+        updateHud();
+        return;
+    }
+
+    if (isScenario) {
+        if (!model::loadScenarioFromFile(gameState, scenarioPath, error)) {
+            setActionMessage(error, true);
+            updateHud();
+            return;
+        }
+    } else {
+        model::clearScenarioState(gameState);
+        model::updateGameStatus(gameState);
+    }
+
+    if (gameState.status == model::GameStatus::InProgress) {
+        model::Card drawnCard;
+        if (!model::drawTurnCard(gameState, drawnCard, error)) {
+            setActionMessage(error, true);
+            updateHud();
+            return;
+        }
+    }
+
+    gameLoaded = true;
+    setActionMessage(tr("Battle loaded. Select a hex and execute your action."), false);
+    updateHud();
+    update();
+}
+
+QString BoardView::playerDisplayName(model::PlayerId id) const
+{
+    if (id == model::PlayerId::A) {
+        return playerOneName;
+    }
+    if (id == model::PlayerId::B) {
+        return playerTwoName;
+    }
+    return tr("Unknown");
+}
+
+QString BoardView::gameStatusText() const
+{
+    switch (gameState.status) {
+    case model::GameStatus::InProgress:
+        return tr("Status: In Progress");
+    case model::GameStatus::WonByA:
+        return tr("Winner: %1").arg(playerOneName);
+    case model::GameStatus::WonByB:
+        return tr("Winner: %1").arg(playerTwoName);
+    }
+    return tr("Status: Unknown");
+}
+
+bool BoardView::currentTurnAgent(model::AgentType &typeOut, QString &errorMessage) const
+{
+    if (!gameState.turn.hasActiveCard) {
+        errorMessage = tr("No active card in current turn.");
+        return false;
+    }
+    typeOut = gameState.turn.activeCard.agent;
+    return true;
+}
+
+bool BoardView::requireSelectedCell(QString &errorMessage) const
+{
+    if (selectedCellId.isEmpty()) {
+        errorMessage = tr("Select a target hex first.");
+        return false;
+    }
+    if (model::findCell(gameState.board, selectedCellId) == nullptr) {
+        errorMessage = tr("Selected hex is not valid.");
+        return false;
+    }
+    return true;
+}
+
+void BoardView::setActionMessage(const QString &message, bool isError)
+{
+    actionResultLabel->setObjectName(isError ? "ResultErr" : "ResultOk");
+    actionResultLabel->setText(message);
+    actionResultLabel->style()->unpolish(actionResultLabel);
+    actionResultLabel->style()->polish(actionResultLabel);
+    actionResultLabel->update();
+}
+
+void BoardView::updateHud()
+{
+    if (!gameLoaded) {
+        turnLabel->setText(tr("Turn: -"));
+        cardLabel->setText(tr("Active Card: -"));
+        statusLabel->setText(gameStatusText());
+        selectedCellLabel->setText(tr("Selected: -"));
+        moveButton->setEnabled(false);
+        attackButton->setEnabled(false);
+        markButton->setEnabled(false);
+        controlButton->setEnabled(false);
+        releaseButton->setEnabled(false);
+        endTurnButton->setEnabled(false);
+        return;
+    }
+
+    const int controlA = model::controlledCellCount(gameState, model::PlayerId::A);
+    const int controlB = model::controlledCellCount(gameState, model::PlayerId::B);
+    const int aliveA = model::aliveAgentCount(gameState, model::PlayerId::A);
+    const int aliveB = model::aliveAgentCount(gameState, model::PlayerId::B);
+
+    const QString activeMark = (gameState.turn.currentPlayer == model::PlayerId::A) ? QStringLiteral(">> ") : QStringLiteral("   ");
+    const QString passiveMark = (gameState.turn.currentPlayer == model::PlayerId::B) ? QStringLiteral(">> ") : QStringLiteral("   ");
+    p1Label->setText(QStringLiteral("%1%2   [Control: %3 | Alive: %4]").arg(activeMark, playerOneName).arg(controlA).arg(aliveA));
+    p2Label->setText(QStringLiteral("%1%2   [Control: %3 | Alive: %4]").arg(passiveMark, playerTwoName).arg(controlB).arg(aliveB));
+
+    turnLabel->setText(tr("Turn %1 · %2")
+                           .arg(gameState.turn.turnIndex)
+                           .arg(playerDisplayName(gameState.turn.currentPlayer)));
+
+    if (gameState.turn.hasActiveCard) {
+        cardLabel->setText(tr("Active Card: %1")
+                               .arg(model::agentTypeName(gameState.turn.activeCard.agent)));
+    } else {
+        cardLabel->setText(tr("Active Card: -"));
+    }
+
+    statusLabel->setText(gameStatusText());
+
+    if (selectedCellId.isEmpty()) {
+        selectedCellLabel->setText(tr("Selected: -"));
+    } else {
+        const model::CellNode *cell = model::findCell(gameState.board, selectedCellId);
+        QString details = tr("Selected: %1").arg(selectedCellId);
+        if (cell != nullptr) {
+            details += tr("\nShield: %1").arg(cell->shield);
+            if (cell->controlledBy == model::PlayerId::A) {
+                details += tr(" | Control: %1").arg(playerOneName);
+            } else if (cell->controlledBy == model::PlayerId::B) {
+                details += tr(" | Control: %1").arg(playerTwoName);
+            } else {
+                details += tr(" | Control: none");
+            }
+        }
+        selectedCellLabel->setText(details);
+    }
+
+    const bool inProgress = (gameState.status == model::GameStatus::InProgress);
+    const bool canAct = inProgress && gameState.turn.hasActiveCard && !actionUsedThisTurn;
+
+    moveButton->setEnabled(false);
+    attackButton->setEnabled(false);
+    markButton->setEnabled(false);
+    controlButton->setEnabled(false);
+    releaseButton->setEnabled(false);
+
+    if (canAct) {
+        moveButton->setEnabled(true);
+        attackButton->setEnabled(true);
+        const model::AgentType type = gameState.turn.activeCard.agent;
+        if (type == model::AgentType::Scout) {
+            markButton->setEnabled(true);
+        } else if (type == model::AgentType::Sergeant) {
+            controlButton->setEnabled(true);
+            releaseButton->setEnabled(true);
+        }
+    }
+
+    endTurnButton->setEnabled(inProgress && gameState.turn.hasActiveCard);
+}
+
+void BoardView::handleMoveAction()
+{
+    QString error;
+    if (!requireSelectedCell(error)) {
+        setActionMessage(error, true);
+        return;
+    }
+
+    model::AgentType type{};
+    if (!currentTurnAgent(type, error)) {
+        setActionMessage(error, true);
+        return;
+    }
+
+    if (!model::moveCurrentPlayerAgent(gameState, type, selectedCellId, error)) {
+        setActionMessage(error, true);
+        return;
+    }
+
+    actionUsedThisTurn = true;
+    setActionMessage(tr("%1 moved to %2.").arg(model::agentTypeName(type), selectedCellId), false);
+    updateHud();
+    update();
+}
+
+void BoardView::handleAttackAction()
+{
+    QString error;
+    if (!requireSelectedCell(error)) {
+        setActionMessage(error, true);
+        return;
+    }
+
+    model::AgentType type{};
+    if (!currentTurnAgent(type, error)) {
+        setActionMessage(error, true);
+        return;
+    }
+
+    const model::AttackResult result = model::attackCurrentPlayer(gameState, type, selectedCellId);
+    if (!result.executed) {
+        setActionMessage(result.errorMessage, true);
+        return;
+    }
+
+    actionUsedThisTurn = true;
+    QString rollText;
+    for (int i = 0; i < result.rolls.size(); ++i) {
+        if (i) {
+            rollText += QLatin1String(", ");
+        }
+        rollText += QString::number(result.rolls[i]);
+    }
+
+    QString message = tr("Attack threshold %1 | Rolls: [%2]")
+                          .arg(result.threshold)
+                          .arg(rollText);
+    if (result.success) {
+        message += tr(" | Hit");
+        if (result.targetEliminated) {
+            message += tr(" | Enemy %1 eliminated").arg(model::agentTypeName(result.targetType));
+        }
+    } else {
+        message += tr(" | Miss");
+    }
+
+    if (gameState.status != model::GameStatus::InProgress) {
+        message += tr(" | %1").arg(gameStatusText());
+    }
+
+    setActionMessage(message, false);
+    updateHud();
+    update();
+}
+
+void BoardView::handleScoutMarkAction()
+{
+    QString error;
+    if (!model::scoutMarkCurrentPlayer(gameState, error)) {
+        setActionMessage(error, true);
+        return;
+    }
+
+    actionUsedThisTurn = true;
+    setActionMessage(tr("Scout marked current cell."), false);
+    updateHud();
+    update();
+}
+
+void BoardView::handleSergeantControlAction()
+{
+    QString error;
+    if (!model::sergeantControlCurrentPlayer(gameState, error)) {
+        setActionMessage(error, true);
+        return;
+    }
+
+    actionUsedThisTurn = true;
+    setActionMessage(tr("Sergeant controlled current cell."), false);
+    updateHud();
+    update();
+}
+
+void BoardView::handleSergeantReleaseAction()
+{
+    QString error;
+    if (!model::sergeantReleaseCurrentPlayer(gameState, error)) {
+        setActionMessage(error, true);
+        return;
+    }
+
+    actionUsedThisTurn = true;
+    setActionMessage(tr("Sergeant released enemy-controlled cell."), false);
+    updateHud();
+    update();
+}
+
+void BoardView::handleEndTurn()
+{
+    QString error;
+    if (!model::endTurn(gameState, error)) {
+        setActionMessage(error, true);
+        return;
+    }
+
+    selectedCellId.clear();
+    actionUsedThisTurn = false;
+
+    if (gameState.status == model::GameStatus::InProgress) {
+        model::Card drawn{};
+        if (!model::drawTurnCard(gameState, drawn, error)) {
+            setActionMessage(error, true);
+            updateHud();
+            return;
+        }
+        setActionMessage(tr("Turn passed to %1.").arg(playerDisplayName(gameState.turn.currentPlayer)), false);
+    } else {
+        setActionMessage(gameStatusText(), false);
+    }
+
+    updateHud();
+    update();
+}
+
+QRectF BoardView::boardAreaRect() const
+{
+    const int rightReserve = sidePanel ? sidePanel->width() + 44 : 340;
+    const qreal left = 24;
+    const qreal top = 86;
+    const qreal widthValue = std::max(260, width() - rightReserve - 24);
+    const qreal heightValue = std::max(260, height() - 150);
+    return QRectF(left, top, widthValue, heightValue);
+}
+
+QPolygonF BoardView::hexPolygon(const QPointF &center, double radius) const
+{
+    constexpr double kPi = 3.14159265358979323846;
+    QPolygonF poly;
+    poly.reserve(6);
+    for (int i = 0; i < 6; ++i) {
+        const double angle = (60.0 * i - 30.0) * kPi / 180.0;
+        poly << QPointF(center.x() + radius * std::cos(angle),
+                        center.y() + radius * std::sin(angle));
+    }
+    return poly;
+}
+
+QColor BoardView::shieldColor(int shield) const
+{
+    if (shield <= 0) {
+        return neutralColor;
+    }
+    if (shield == 1) {
+        return friendlyColor;
+    }
+    return hostileColor;
+}
+
+QString BoardView::pieceShortName(model::AgentType type) const
+{
+    switch (type) {
+    case model::AgentType::Scout:
+        return QStringLiteral("SC");
+    case model::AgentType::Sniper:
+        return QStringLiteral("SN");
+    case model::AgentType::Sergeant:
+        return QStringLiteral("SG");
+    }
+    return QStringLiteral("??");
+}
+
+void BoardView::paintEvent(QPaintEvent *event)
+{
     Q_UNUSED(event);
+
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const QRectF full = rect();
+    QLinearGradient bg(full.topLeft(), full.bottomRight());
+    bg.setColorAt(0.0, QColor(14, 22, 31));
+    bg.setColorAt(0.6, QColor(28, 47, 34));
+    bg.setColorAt(1.0, QColor(47, 34, 26));
+    p.fillRect(full, bg);
+
+    QRadialGradient vignette(QPointF(width() * 0.35, height() * 0.5), std::max(width(), height()) * 0.85);
+    vignette.setColorAt(0.0, QColor(0, 0, 0, 0));
+    vignette.setColorAt(1.0, QColor(0, 0, 0, 165));
+    p.fillRect(full, vignette);
+
+    QRectF boardArea = boardAreaRect();
+    QLinearGradient frameGrad(boardArea.topLeft(), boardArea.bottomRight());
+    frameGrad.setColorAt(0.0, QColor(47, 67, 51, 235));
+    frameGrad.setColorAt(1.0, QColor(36, 49, 38, 235));
+    p.setPen(QPen(QColor(240, 233, 199, 60), 2.0));
+    p.setBrush(frameGrad);
+    p.drawRoundedRect(boardArea, 18, 18);
+
+    cellPolygons.clear();
+
+    if (!gameLoaded || gameState.board.cells.empty()) {
+        p.setPen(QColor(238, 238, 238));
+        p.drawText(boardArea, Qt::AlignCenter, tr("Board is not loaded"));
+        return;
+    }
+
+    const double sqrt3 = std::sqrt(3.0);
+    QHash<QString, QPointF> unitCenters;
+    unitCenters.reserve(static_cast<int>(gameState.board.cells.size()));
+
+    double minX = 1e9;
+    double maxX = -1e9;
+    double minY = 1e9;
+    double maxY = -1e9;
+
+    for (const auto &cellPtr : gameState.board.cells) {
+        const model::CellNode *cell = cellPtr.get();
+        const double ux = cell->col * sqrt3 + (cell->offset ? sqrt3 / 2.0 : 0.0);
+        const double uy = cell->row * 1.5;
+        unitCenters.insert(cell->id, QPointF(ux, uy));
+        minX = std::min(minX, ux);
+        maxX = std::max(maxX, ux);
+        minY = std::min(minY, uy);
+        maxY = std::max(maxY, uy);
+    }
+
+    const double gridW = (maxX - minX) + sqrt3;
+    const double gridH = (maxY - minY) + 2.0;
+    if (gridW <= 0 || gridH <= 0) {
+        return;
+    }
+
+    const QRectF inner = boardArea.adjusted(18, 18, -18, -18);
+    const double radius = std::max(14.0, std::min(inner.width() / gridW, inner.height() / gridH));
+    const QPointF boardCenter = inner.center();
+    const double midX = (minX + maxX) * 0.5;
+    const double midY = (minY + maxY) * 0.5;
+
+    QFont idFont = p.font();
+    idFont.setPointSize(8);
+    idFont.setWeight(QFont::DemiBold);
+
+    QFont tokenFont = p.font();
+    tokenFont.setPointSize(8);
+    tokenFont.setWeight(QFont::Bold);
+
+    for (const auto &cellPtr : gameState.board.cells) {
+        const model::CellNode *cell = cellPtr.get();
+        const QPointF u = unitCenters.value(cell->id);
+        const QPointF center(boardCenter.x() + (u.x() - midX) * radius,
+                             boardCenter.y() + (u.y() - midY) * radius);
+
+        const QPolygonF poly = hexPolygon(center, radius);
+        cellPolygons.insert(cell->id, poly);
+
+        QColor base = shieldColor(cell->shield);
+        QLinearGradient fillGrad(center + QPointF(0, -radius * 0.55),
+                                 center + QPointF(0, radius * 0.9));
+        fillGrad.setColorAt(0.0, base.lighter(125));
+        fillGrad.setColorAt(1.0, base.darker(130));
+
+        if (cell->id == selectedCellId) {
+            p.setPen(QPen(QColor(250, 235, 156), 3.2));
+        } else {
+            p.setPen(QPen(QColor(255, 255, 255, 95), 1.4));
+        }
+        p.setBrush(fillGrad);
+        p.drawPolygon(poly);
+
+        if (cell->controlledBy == model::PlayerId::A) {
+            p.setPen(QPen(playerAColor, 2.8));
+            p.setBrush(Qt::NoBrush);
+            p.drawPolygon(poly);
+        } else if (cell->controlledBy == model::PlayerId::B) {
+            p.setPen(QPen(playerBColor, 2.8));
+            p.setBrush(Qt::NoBrush);
+            p.drawPolygon(poly);
+        }
+
+        if (cell->markedByA) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(playerAColor);
+            p.drawEllipse(center + QPointF(-radius * 0.42, -radius * 0.32), radius * 0.14, radius * 0.14);
+        }
+        if (cell->markedByB) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(playerBColor);
+            p.drawEllipse(center + QPointF(radius * 0.42, -radius * 0.32), radius * 0.14, radius * 0.14);
+        }
+
+        p.setFont(idFont);
+        p.setPen(QColor(16, 16, 16));
+        p.drawText(QRectF(center.x() - radius, center.y() - radius * 0.75, radius * 2, radius * 0.45),
+                   Qt::AlignCenter,
+                   cell->id);
+
+        std::optional<model::AgentType> occ;
+        model::PlayerId owner = model::PlayerId::None;
+        if (cell->occupantA.has_value()) {
+            occ = cell->occupantA;
+            owner = model::PlayerId::A;
+        } else if (cell->occupantB.has_value()) {
+            occ = cell->occupantB;
+            owner = model::PlayerId::B;
+        }
+
+        if (occ.has_value()) {
+            const QRectF tokenRect(center.x() - radius * 0.48,
+                                   center.y() - radius * 0.3,
+                                   radius * 0.96,
+                                   radius * 0.96);
+            p.setPen(QPen(QColor(255, 255, 255, 180), 1.6));
+            p.setBrush(owner == model::PlayerId::A ? playerAColor : playerBColor);
+            p.drawEllipse(tokenRect);
+
+            p.setFont(tokenFont);
+            p.setPen(QColor(10, 15, 20));
+            p.drawText(tokenRect, Qt::AlignCenter, pieceShortName(*occ));
+        }
+    }
+}
+
+void BoardView::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() != Qt::LeftButton) {
+        QWidget::mousePressEvent(event);
+        return;
+    }
+
+    const QPointF click = event->position();
+    QString hit;
+
+    for (auto it = cellPolygons.constBegin(); it != cellPolygons.constEnd(); ++it) {
+        if (it.value().containsPoint(click, Qt::OddEvenFill)) {
+            hit = it.key();
+            break;
+        }
+    }
+
+    if (!hit.isEmpty()) {
+        selectedCellId = hit;
+        updateHud();
+        update();
+        return;
+    }
+
+    if (boardAreaRect().contains(click)) {
+        selectedCellId.clear();
+        updateHud();
+        update();
+        return;
+    }
+
+    QWidget::mousePressEvent(event);
 }
