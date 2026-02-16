@@ -14,8 +14,16 @@ find_package(Qt6 COMPONENTS Widgets REQUIRED)
 
 add_executable(QtHello
     main.cpp
-    src/game/GameModel.cpp
     src/game/GameModel.h
+    src/game/model/Types.h
+    src/game/model/Init.h
+    src/game/model/Init.cpp
+    src/game/board/BoardGraph.h
+    src/game/board/BoardGraph.cpp
+    src/game/scenario/ScenarioLoader.h
+    src/game/scenario/ScenarioLoader.cpp
+    src/game/turn/TurnSystem.h
+    src/game/turn/TurnSystem.cpp
     src/ui/SplashScreen.cpp
     src/ui/SplashScreen.h
     src/ui/LoginScreen.cpp
