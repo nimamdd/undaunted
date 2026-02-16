@@ -26,6 +26,49 @@ void shuffleVector(QVector<T> &values)
     }
 }
 
+bool isAgentUsable(const PlayerState &player, AgentType type)
+{
+    const AgentState *agent = findAgent(player, type);
+    return agent != nullptr && agent->alive && !agent->cellId.isEmpty();
+}
+
+int firstCardIndexForType(const DeckState &deck, AgentType type)
+{
+    for (int i = 0; i < deck.drawPile.size(); ++i) {
+        if (deck.drawPile.at(i).agent == type) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+QVector<AgentType> switchOrderFrom(AgentType current)
+{
+    const QVector<AgentType> order = {
+        AgentType::Scout,
+        AgentType::Sniper,
+        AgentType::Sergeant,
+    };
+
+    int currentIndex = -1;
+    for (int i = 0; i < order.size(); ++i) {
+        if (order.at(i) == current) {
+            currentIndex = i;
+            break;
+        }
+    }
+
+    QVector<AgentType> out;
+    if (currentIndex < 0) {
+        return out;
+    }
+
+    for (int step = 1; step < order.size(); ++step) {
+        out.push_back(order.at((currentIndex + step) % order.size()));
+    }
+    return out;
+}
+
 } // namespace
 
 void shuffleDeck(DeckState &deck)
@@ -111,6 +154,50 @@ bool endTurn(GameState &state, QString &errorMessage)
 
     state.turn.currentPlayer = opponentOf(state.turn.currentPlayer);
     state.turn.turnIndex += 1;
+    return true;
+}
+
+bool switchTurnAgent(GameState &state, QString &errorMessage)
+{
+    if (state.status != GameStatus::InProgress) {
+        errorMessage = QStringLiteral("Game is already finished.");
+        return false;
+    }
+
+    if (!state.turn.hasActiveCard) {
+        errorMessage = QStringLiteral("No active turn card to switch.");
+        return false;
+    }
+
+    PlayerState *player = playerById(state, state.turn.currentPlayer);
+    if (player == nullptr) {
+        errorMessage = QStringLiteral("Invalid current player.");
+        return false;
+    }
+
+    const AgentType currentType = state.turn.activeCard.agent;
+
+    int replacementIndex = -1;
+    for (const AgentType nextType : switchOrderFrom(currentType)) {
+        if (!isAgentUsable(*player, nextType)) {
+            continue;
+        }
+        replacementIndex = firstCardIndexForType(player->deck, nextType);
+        if (replacementIndex >= 0) {
+            break;
+        }
+    }
+
+    if (replacementIndex < 0) {
+        errorMessage = QStringLiteral("No other active agent card available to switch.");
+        return false;
+    }
+
+    const Card previous = state.turn.activeCard;
+    const Card replacement = player->deck.drawPile.at(replacementIndex);
+    player->deck.drawPile.removeAt(replacementIndex);
+    player->deck.drawPile.push_back(previous);
+    state.turn.activeCard = replacement;
     return true;
 }
 

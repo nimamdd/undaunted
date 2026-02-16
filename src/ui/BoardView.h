@@ -40,6 +40,7 @@ private:
 
     void handleMoveAction();
     void handleAttackAction();
+    void handleSwitchAgentAction();
     void handleScoutMarkAction();
     void handleSergeantControlAction();
     void handleSergeantReleaseAction();
@@ -73,6 +74,7 @@ private:
     QPushButton *menuButton = nullptr;
     QPushButton *moveButton = nullptr;
     QPushButton *attackButton = nullptr;
+    QPushButton *switchAgentButton = nullptr;
     QPushButton *markButton = nullptr;
     QPushButton *controlButton = nullptr;
     QPushButton *releaseButton = nullptr;

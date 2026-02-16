@@ -4,6 +4,8 @@
 #include "../model/Init.h"
 #include "../turn/TurnSystem.h"
 
+#include <QStringList>
+
 namespace model {
 
 namespace {
@@ -126,7 +128,15 @@ bool canMoveAgent(const GameState &state, PlayerId owner, AgentType type, const 
     }
 
     if (!isNeighbor(from, to)) {
-        errorMessage = QStringLiteral("Target cell is not adjacent.");
+        QStringList neighborIds;
+        neighborIds.reserve(from->neighbors.size());
+        for (const CellNode *neighbor : from->neighbors) {
+            if (neighbor != nullptr) {
+                neighborIds.push_back(neighbor->id);
+            }
+        }
+        errorMessage = QStringLiteral("Target %1 is not adjacent to %2. Adjacent cells: %3")
+                           .arg(toCellId, from->id, neighborIds.join(QStringLiteral(", ")));
         return false;
     }
 
@@ -186,4 +196,3 @@ bool moveCurrentPlayerAgent(GameState &state, AgentType type, const QString &toC
 }
 
 } // namespace model
-

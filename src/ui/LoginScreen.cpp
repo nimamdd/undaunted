@@ -124,6 +124,12 @@ void LoginScreen::setupUi()
 
     root->addStretch(1);
     root->addWidget(content, 0, Qt::AlignLeft | Qt::AlignBottom);
+
+    // Pre-fill valid default names so users can jump into a match quickly.
+    playerOneEdit->setText(QStringLiteral("AlphaOne1!"));
+    playerTwoEdit->setText(QStringLiteral("BravoTwo2@"));
+
+    handleInputChanged();
 }
 
 void LoginScreen::setupStyles()
@@ -354,6 +360,10 @@ void LoginScreen::handleStartClicked()
 
 void LoginScreen::handleInputChanged()
 {
+    if (startButton == nullptr) {
+        return;
+    }
+
     QString error;
     const bool ok = validateForm(error);
     startButton->setEnabled(ok);

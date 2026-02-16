@@ -93,6 +93,7 @@ void BoardView::setupUi()
 
     moveButton = makeButton(tr("Move"), "ActionButton");
     attackButton = makeButton(tr("Attack"), "ActionButton");
+    switchAgentButton = makeButton(tr("Switch Agent"), "ActionButton");
     markButton = makeButton(tr("Scout Mark"), "ActionButton");
     controlButton = makeButton(tr("Sergeant Control"), "ActionButton");
     releaseButton = makeButton(tr("Sergeant Release"), "ActionButton");
@@ -123,6 +124,7 @@ void BoardView::setupUi()
 
     connect(moveButton, &QPushButton::clicked, this, &BoardView::handleMoveAction);
     connect(attackButton, &QPushButton::clicked, this, &BoardView::handleAttackAction);
+    connect(switchAgentButton, &QPushButton::clicked, this, &BoardView::handleSwitchAgentAction);
     connect(markButton, &QPushButton::clicked, this, &BoardView::handleScoutMarkAction);
     connect(controlButton, &QPushButton::clicked, this, &BoardView::handleSergeantControlAction);
     connect(releaseButton, &QPushButton::clicked, this, &BoardView::handleSergeantReleaseAction);
@@ -363,6 +365,7 @@ void BoardView::updateHud()
         selectedCellLabel->setText(tr("Selected: -"));
         moveButton->setEnabled(false);
         attackButton->setEnabled(false);
+        switchAgentButton->setEnabled(false);
         markButton->setEnabled(false);
         controlButton->setEnabled(false);
         releaseButton->setEnabled(false);
@@ -374,19 +377,50 @@ void BoardView::updateHud()
     const int controlB = model::controlledCellCount(gameState, model::PlayerId::B);
     const int aliveA = model::aliveAgentCount(gameState, model::PlayerId::A);
     const int aliveB = model::aliveAgentCount(gameState, model::PlayerId::B);
+    const model::PlayerState *playerAState = model::playerById(gameState, model::PlayerId::A);
+    const model::PlayerState *playerBState = model::playerById(gameState, model::PlayerId::B);
 
-    const QString activeMark = (gameState.turn.currentPlayer == model::PlayerId::A) ? QStringLiteral(">> ") : QStringLiteral("   ");
-    const QString passiveMark = (gameState.turn.currentPlayer == model::PlayerId::B) ? QStringLiteral(">> ") : QStringLiteral("   ");
-    p1Label->setText(QStringLiteral("%1%2   [Control: %3 | Alive: %4]").arg(activeMark, playerOneName).arg(controlA).arg(aliveA));
-    p2Label->setText(QStringLiteral("%1%2   [Control: %3 | Alive: %4]").arg(passiveMark, playerTwoName).arg(controlB).arg(aliveB));
+    const auto hpText = [](const model::PlayerState *player, model::AgentType type) {
+        if (player == nullptr) {
+            return QStringLiteral("X");
+        }
+        const model::AgentState *agent = model::findAgent(*player, type);
+        if (agent == nullptr || !agent->alive) {
+            return QStringLiteral("X");
+        }
+        return QString::number(agent->hp);
+    };
+
+    const QString p1Turn = (gameState.turn.currentPlayer == model::PlayerId::A) ? tr(" (Turn)") : QString();
+    const QString p2Turn = (gameState.turn.currentPlayer == model::PlayerId::B) ? tr(" (Turn)") : QString();
+    p1Label->setText(
+        QStringLiteral("<span style='color:#5695e0;'>■</span> %1%2&nbsp;&nbsp;[Control: %3 | Alive: %4]<br/>HP: SC:%5 SN:%6 SG:%7")
+            .arg(playerOneName, p1Turn)
+            .arg(controlA)
+            .arg(aliveA)
+            .arg(hpText(playerAState, model::AgentType::Scout))
+            .arg(hpText(playerAState, model::AgentType::Sniper))
+            .arg(hpText(playerAState, model::AgentType::Sergeant)));
+    p2Label->setText(
+        QStringLiteral("<span style='color:#e37b66;'>■</span> %1%2&nbsp;&nbsp;[Control: %3 | Alive: %4]<br/>HP: SC:%5 SN:%6 SG:%7")
+            .arg(playerTwoName, p2Turn)
+            .arg(controlB)
+            .arg(aliveB)
+            .arg(hpText(playerBState, model::AgentType::Scout))
+            .arg(hpText(playerBState, model::AgentType::Sniper))
+            .arg(hpText(playerBState, model::AgentType::Sergeant)));
 
     turnLabel->setText(tr("Turn %1 · %2")
                            .arg(gameState.turn.turnIndex)
                            .arg(playerDisplayName(gameState.turn.currentPlayer)));
 
     if (gameState.turn.hasActiveCard) {
-        cardLabel->setText(tr("Active Card: %1")
-                               .arg(model::agentTypeName(gameState.turn.activeCard.agent)));
+        const model::AgentType type = gameState.turn.activeCard.agent;
+        const model::PlayerState *player = model::playerById(gameState, gameState.turn.currentPlayer);
+        const model::AgentState *agent = (player == nullptr) ? nullptr : model::findAgent(*player, type);
+        const QString atCell = (agent != nullptr && !agent->cellId.isEmpty()) ? agent->cellId : tr("off-board");
+        cardLabel->setText(tr("Active Card: %1 @ %2")
+                               .arg(model::agentTypeName(type), atCell));
     } else {
         cardLabel->setText(tr("Active Card: -"));
     }
@@ -416,6 +450,7 @@ void BoardView::updateHud()
 
     moveButton->setEnabled(false);
     attackButton->setEnabled(false);
+    switchAgentButton->setEnabled(false);
     markButton->setEnabled(false);
     controlButton->setEnabled(false);
     releaseButton->setEnabled(false);
@@ -423,6 +458,7 @@ void BoardView::updateHud()
     if (canAct) {
         moveButton->setEnabled(true);
         attackButton->setEnabled(true);
+        switchAgentButton->setEnabled(true);
         const model::AgentType type = gameState.turn.activeCard.agent;
         if (type == model::AgentType::Scout) {
             markButton->setEnabled(true);
@@ -506,6 +542,26 @@ void BoardView::handleAttackAction()
     }
 
     setActionMessage(message, false);
+    updateHud();
+    update();
+}
+
+void BoardView::handleSwitchAgentAction()
+{
+    if (actionUsedThisTurn) {
+        setActionMessage(tr("You cannot switch agent after using an action."), true);
+        return;
+    }
+
+    QString error;
+    if (!model::switchTurnAgent(gameState, error)) {
+        setActionMessage(error, true);
+        return;
+    }
+
+    setActionMessage(tr("Active agent switched to %1.")
+                         .arg(model::agentTypeName(gameState.turn.activeCard.agent)),
+                     false);
     updateHud();
     update();
 }
