@@ -20,6 +20,8 @@ add_executable(QtHello
     src/game/model/Init.cpp
     src/game/board/BoardGraph.h
     src/game/board/BoardGraph.cpp
+    src/game/actions/Combat.h
+    src/game/actions/Combat.cpp
     src/game/actions/Movement.h
     src/game/actions/Movement.cpp
     src/game/actions/TacticalActions.h
