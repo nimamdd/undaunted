@@ -2,6 +2,7 @@
 
 #include "board/BoardGraph.h"
 #include "actions/Movement.h"
+#include "actions/TacticalActions.h"
 #include "model/Init.h"
 #include "model/Types.h"
 #include "scenario/ScenarioLoader.h"

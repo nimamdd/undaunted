@@ -22,6 +22,8 @@ add_executable(QtHello
     src/game/board/BoardGraph.cpp
     src/game/actions/Movement.h
     src/game/actions/Movement.cpp
+    src/game/actions/TacticalActions.h
+    src/game/actions/TacticalActions.cpp
     src/game/scenario/ScenarioLoader.h
     src/game/scenario/ScenarioLoader.cpp
     src/game/turn/TurnSystem.h
