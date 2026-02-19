@@ -24,11 +24,6 @@ bool isMarkedForOwner(const CellNode *cell, PlayerId owner)
 class ScoutBehavior final : public AgentBehavior
 {
 public:
-    AgentType type() const override
-    {
-        return AgentType::Scout;
-    }
-
     bool canMoveTo(const GameState &, PlayerId, const CellNode *, QString &) const override
     {
         return true;
@@ -61,11 +56,6 @@ public:
 class SniperBehavior final : public AgentBehavior
 {
 public:
-    AgentType type() const override
-    {
-        return AgentType::Sniper;
-    }
-
     bool canMoveTo(const GameState &, PlayerId owner, const CellNode *to, QString &errorMessage) const override
     {
         if (isMarkedForOwner(to, owner)) {
@@ -96,11 +86,6 @@ public:
 class SergeantBehavior final : public AgentBehavior
 {
 public:
-    AgentType type() const override
-    {
-        return AgentType::Sergeant;
-    }
-
     bool canMoveTo(const GameState &, PlayerId owner, const CellNode *to, QString &errorMessage) const override
     {
         if (isMarkedForOwner(to, owner)) {

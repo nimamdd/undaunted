@@ -77,7 +77,7 @@ bool validateAgentReady(const GameState &state,
 
 } // namespace
 
-bool canScoutMark(const GameState &state, PlayerId owner, QString &errorMessage)
+bool canScoutMarkInternal(const GameState &state, PlayerId owner, QString &errorMessage)
 {
     if (state.status != GameStatus::InProgress) {
         errorMessage = QStringLiteral("Game is already finished.");
@@ -101,7 +101,7 @@ bool canScoutMark(const GameState &state, PlayerId owner, QString &errorMessage)
 
 bool scoutMark(GameState &state, PlayerId owner, QString &errorMessage)
 {
-    if (!canScoutMark(state, owner, errorMessage)) {
+    if (!canScoutMarkInternal(state, owner, errorMessage)) {
         return false;
     }
 
@@ -121,7 +121,7 @@ bool scoutMark(GameState &state, PlayerId owner, QString &errorMessage)
     return true;
 }
 
-bool canSergeantControl(const GameState &state, PlayerId owner, QString &errorMessage)
+bool canSergeantControlInternal(const GameState &state, PlayerId owner, QString &errorMessage)
 {
     if (state.status != GameStatus::InProgress) {
         errorMessage = QStringLiteral("Game is already finished.");
@@ -150,7 +150,7 @@ bool canSergeantControl(const GameState &state, PlayerId owner, QString &errorMe
 
 bool sergeantControl(GameState &state, PlayerId owner, QString &errorMessage)
 {
-    if (!canSergeantControl(state, owner, errorMessage)) {
+    if (!canSergeantControlInternal(state, owner, errorMessage)) {
         return false;
     }
 
@@ -162,7 +162,7 @@ bool sergeantControl(GameState &state, PlayerId owner, QString &errorMessage)
     return true;
 }
 
-bool canSergeantRelease(const GameState &state, PlayerId owner, QString &errorMessage)
+bool canSergeantReleaseInternal(const GameState &state, PlayerId owner, QString &errorMessage)
 {
     if (state.status != GameStatus::InProgress) {
         errorMessage = QStringLiteral("Game is already finished.");
@@ -191,7 +191,7 @@ bool canSergeantRelease(const GameState &state, PlayerId owner, QString &errorMe
 
 bool sergeantRelease(GameState &state, PlayerId owner, QString &errorMessage)
 {
-    if (!canSergeantRelease(state, owner, errorMessage)) {
+    if (!canSergeantReleaseInternal(state, owner, errorMessage)) {
         return false;
     }
 

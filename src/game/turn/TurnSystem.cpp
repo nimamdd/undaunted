@@ -42,11 +42,6 @@ void shuffleAllDecks(GameState &state)
     shufflePlayerDeck(state.playerB);
 }
 
-const Card *currentTurnCard(const GameState &state)
-{
-    return state.turn.hasActiveCard ? &state.turn.activeCard : nullptr;
-}
-
 bool drawTurnCard(GameState &state, Card &drawnCard, QString &errorMessage)
 {
     if (state.status != GameStatus::InProgress) {

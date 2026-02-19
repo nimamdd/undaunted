@@ -15,7 +15,6 @@ class AgentBehavior
 public:
     virtual ~AgentBehavior() = default;
 
-    virtual AgentType type() const = 0;
     virtual bool canMoveTo(const GameState &state,
                            PlayerId owner,
                            const CellNode *to,

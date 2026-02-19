@@ -22,18 +22,6 @@ struct AttackResult {
     QString errorMessage;
 };
 
-bool canAttack(const GameState &state,
-               PlayerId attackerOwner,
-               AgentType attackerType,
-               const QString &targetCellId,
-               QString &errorMessage);
-
-int computeAttackThreshold(const GameState &state,
-                           PlayerId attackerOwner,
-                           AgentType attackerType,
-                           const QString &targetCellId,
-                           QString &errorMessage);
-
 AttackResult attack(GameState &state,
                     PlayerId attackerOwner,
                     AgentType attackerType,

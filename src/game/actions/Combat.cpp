@@ -62,13 +62,11 @@ bool resolveTarget(const GameState &state,
     return true;
 }
 
-} // namespace
-
-bool canAttack(const GameState &state,
-               PlayerId attackerOwner,
-               AgentType attackerType,
-               const QString &targetCellId,
-               QString &errorMessage)
+bool canAttackInternal(const GameState &state,
+                       PlayerId attackerOwner,
+                       AgentType attackerType,
+                       const QString &targetCellId,
+                       QString &errorMessage)
 {
     if (behaviorFor(attackerType) == nullptr) {
         errorMessage = QStringLiteral("Unsupported attacker agent type.");
@@ -121,13 +119,13 @@ bool canAttack(const GameState &state,
     return true;
 }
 
-int computeAttackThreshold(const GameState &state,
-                           PlayerId attackerOwner,
-                           AgentType attackerType,
-                           const QString &targetCellId,
-                           QString &errorMessage)
+int computeAttackThresholdInternal(const GameState &state,
+                                   PlayerId attackerOwner,
+                                   AgentType attackerType,
+                                   const QString &targetCellId,
+                                   QString &errorMessage)
 {
-    if (!canAttack(state, attackerOwner, attackerType, targetCellId, errorMessage)) {
+    if (!canAttackInternal(state, attackerOwner, attackerType, targetCellId, errorMessage)) {
         return 0;
     }
 
@@ -159,6 +157,8 @@ int computeAttackThreshold(const GameState &state,
     return threshold;
 }
 
+} // namespace
+
 AttackResult attack(GameState &state,
                     PlayerId attackerOwner,
                     AgentType attackerType,
@@ -170,7 +170,7 @@ AttackResult attack(GameState &state,
     result.targetCellId = targetCellId;
 
     QString error;
-    if (!canAttack(state, attackerOwner, attackerType, targetCellId, error)) {
+    if (!canAttackInternal(state, attackerOwner, attackerType, targetCellId, error)) {
         result.errorMessage = error;
         return result;
     }
@@ -182,7 +182,7 @@ AttackResult attack(GameState &state,
         return result;
     }
 
-    const int threshold = computeAttackThreshold(state, attackerOwner, attackerType, targetCellId, error);
+    const int threshold = computeAttackThresholdInternal(state, attackerOwner, attackerType, targetCellId, error);
     if (threshold <= 0) {
         result.errorMessage = error.isEmpty() ? QStringLiteral("Failed to compute attack threshold.") : error;
         return result;

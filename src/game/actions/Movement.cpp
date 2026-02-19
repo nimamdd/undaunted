@@ -30,45 +30,9 @@ bool isNeighbor(const CellNode *from, const CellNode *to)
 
 } // namespace
 
-QVector<const CellNode *> movableNeighbors(const GameState &state, PlayerId owner, AgentType type)
-{
-    const AgentBehavior *behavior = behaviorFor(type);
-    if (behavior == nullptr) {
-        return {};
-    }
+namespace {
 
-    const PlayerState *player = playerById(state, owner);
-    if (player == nullptr) {
-        return {};
-    }
-
-    const AgentState *agent = findAgent(*player, type);
-    if (agent == nullptr || !agent->alive || agent->cellId.isEmpty()) {
-        return {};
-    }
-
-    const CellNode *from = findCell(state.board, agent->cellId);
-    if (from == nullptr) {
-        return {};
-    }
-
-    QVector<const CellNode *> out;
-    for (const CellNode *neighbor : from->neighbors) {
-        if (isOccupied(neighbor)) {
-            continue;
-        }
-
-        QString moveError;
-        if (!behavior->canMoveTo(state, owner, neighbor, moveError)) {
-            continue;
-        }
-
-        out.push_back(neighbor);
-    }
-    return out;
-}
-
-bool canMoveAgent(const GameState &state, PlayerId owner, AgentType type, const QString &toCellId, QString &errorMessage)
+bool canMoveAgentInternal(const GameState &state, PlayerId owner, AgentType type, const QString &toCellId, QString &errorMessage)
 {
     const AgentBehavior *behavior = behaviorFor(type);
     if (behavior == nullptr) {
@@ -150,9 +114,11 @@ bool canMoveAgent(const GameState &state, PlayerId owner, AgentType type, const 
     return true;
 }
 
+} // namespace
+
 bool moveAgent(GameState &state, PlayerId owner, AgentType type, const QString &toCellId, QString &errorMessage)
 {
-    if (!canMoveAgent(state, owner, type, toCellId, errorMessage)) {
+    if (!canMoveAgentInternal(state, owner, type, toCellId, errorMessage)) {
         return false;
     }
 
