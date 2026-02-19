@@ -35,7 +35,6 @@ private:
     void setActionMessage(const QString &message, bool isError);
     QString playerDisplayName(model::PlayerId id) const;
     QString gameStatusText() const;
-    bool currentTurnAgent(model::AgentType &typeOut, QString &errorMessage) const;
     bool requireSelectedCell(QString &errorMessage) const;
 
     void handleMoveAction();
@@ -53,6 +52,7 @@ private:
 
 private:
     model::GameState gameState{};
+    model::GameSession session;
 
     QString playerOneName;
     QString playerTwoName;
@@ -60,7 +60,6 @@ private:
     QString boardPath;
     QString selectedCellId;
 
-    bool actionUsedThisTurn{false};
     bool gameLoaded{false};
 
     QLabel *titleLabel = nullptr;

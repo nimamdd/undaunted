@@ -25,6 +25,7 @@ BoardView::BoardView(const QString &playerOne,
                      const QString &scenario,
                      QWidget *parent)
     : QWidget(parent),
+      session(gameState),
       playerOneName(playerOne.isEmpty() ? tr("PLAYER 1") : playerOne),
       playerTwoName(playerTwo.isEmpty() ? tr("PLAYER 2") : playerTwo),
       scenarioPath(scenario)
@@ -253,9 +254,7 @@ QString BoardView::resolveBoardPath(const QString &inputPath, bool &isScenario, 
 
 void BoardView::initializeGame()
 {
-    gameState = model::buildInitialGameState(playerOneName, playerTwoName);
     gameLoaded = false;
-    actionUsedThisTurn = false;
     selectedCellId.clear();
     cellPolygons.clear();
 
@@ -268,33 +267,13 @@ void BoardView::initializeGame()
         return;
     }
 
-    if (!model::loadBoardFromMapFile(gameState.board, boardPath, error)) {
+    if (!session.initializeNewBattle(playerOneName, playerTwoName, boardPath, scenarioPath, isScenario, error)) {
         setActionMessage(error, true);
         updateHud();
         return;
     }
 
-    if (isScenario) {
-        if (!model::loadScenarioFromFile(gameState, scenarioPath, error)) {
-            setActionMessage(error, true);
-            updateHud();
-            return;
-        }
-    } else {
-        model::clearScenarioState(gameState);
-        model::updateGameStatus(gameState);
-    }
-
-    if (gameState.status == model::GameStatus::InProgress) {
-        model::Card drawnCard;
-        if (!model::drawTurnCard(gameState, drawnCard, error)) {
-            setActionMessage(error, true);
-            updateHud();
-            return;
-        }
-    }
-
-    gameLoaded = true;
+    gameLoaded = session.isLoaded();
     setActionMessage(tr("Battle loaded. Select a hex and execute your action."), false);
     updateHud();
     update();
@@ -322,16 +301,6 @@ QString BoardView::gameStatusText() const
         return tr("Winner: %1").arg(playerTwoName);
     }
     return tr("Status: Unknown");
-}
-
-bool BoardView::currentTurnAgent(model::AgentType &typeOut, QString &errorMessage) const
-{
-    if (!gameState.turn.hasActiveCard) {
-        errorMessage = tr("No active card in current turn.");
-        return false;
-    }
-    typeOut = gameState.turn.activeCard.agent;
-    return true;
 }
 
 bool BoardView::requireSelectedCell(QString &errorMessage) const
@@ -446,7 +415,7 @@ void BoardView::updateHud()
     }
 
     const bool inProgress = (gameState.status == model::GameStatus::InProgress);
-    const bool canAct = inProgress && gameState.turn.hasActiveCard && !actionUsedThisTurn;
+    const bool canAct = inProgress && gameState.turn.hasActiveCard && !session.actionUsedThisTurn();
 
     moveButton->setEnabled(false);
     attackButton->setEnabled(false);
@@ -468,7 +437,7 @@ void BoardView::updateHud()
         }
     }
 
-    endTurnButton->setEnabled(inProgress && gameState.turn.hasActiveCard && actionUsedThisTurn);
+    endTurnButton->setEnabled(inProgress && gameState.turn.hasActiveCard && session.actionUsedThisTurn());
 }
 
 void BoardView::handleMoveAction()
@@ -479,19 +448,13 @@ void BoardView::handleMoveAction()
         return;
     }
 
-    model::AgentType type{};
-    if (!currentTurnAgent(type, error)) {
-        setActionMessage(error, true);
+    const model::CommandResult result = session.execute(model::MoveCommand(selectedCellId));
+    if (!result.ok) {
+        setActionMessage(result.message, true);
         return;
     }
 
-    if (!model::moveCurrentPlayerAgent(gameState, type, selectedCellId, error)) {
-        setActionMessage(error, true);
-        return;
-    }
-
-    actionUsedThisTurn = true;
-    setActionMessage(tr("%1 moved to %2.").arg(model::agentTypeName(type), selectedCellId), false);
+    setActionMessage(result.message, false);
     updateHud();
     update();
 }
@@ -504,140 +467,79 @@ void BoardView::handleAttackAction()
         return;
     }
 
-    model::AgentType type{};
-    if (!currentTurnAgent(type, error)) {
-        setActionMessage(error, true);
+    const model::CommandResult result = session.execute(model::AttackCommand(selectedCellId));
+    if (!result.ok) {
+        setActionMessage(result.message, true);
         return;
     }
 
-    const model::AttackResult result = model::attackCurrentPlayer(gameState, type, selectedCellId);
-    if (!result.executed) {
-        setActionMessage(result.errorMessage, true);
-        return;
-    }
-
-    actionUsedThisTurn = true;
-    QString rollText;
-    for (int i = 0; i < result.rolls.size(); ++i) {
-        if (i) {
-            rollText += QLatin1String(", ");
-        }
-        rollText += QString::number(result.rolls[i]);
-    }
-
-    QString message = tr("Attack threshold %1 | Rolls: [%2]")
-                          .arg(result.threshold)
-                          .arg(rollText);
-    if (result.success) {
-        message += tr(" | Hit");
-        if (result.targetEliminated) {
-            message += tr(" | Enemy %1 eliminated").arg(model::agentTypeName(result.targetType));
-        }
-    } else {
-        message += tr(" | Miss");
-    }
-
-    if (gameState.status != model::GameStatus::InProgress) {
-        message += tr(" | %1").arg(gameStatusText());
-    }
-
-    setActionMessage(message, false);
+    setActionMessage(result.message, false);
     updateHud();
     update();
 }
 
 void BoardView::handleSwitchAgentAction()
 {
-    if (actionUsedThisTurn) {
-        setActionMessage(tr("You cannot switch agent after using an action."), true);
+    const model::CommandResult result = session.execute(model::SwitchAgentCommand{});
+    if (!result.ok) {
+        setActionMessage(result.message, true);
         return;
     }
 
-    QString error;
-    if (!model::switchTurnAgent(gameState, error)) {
-        setActionMessage(error, true);
-        return;
-    }
-
-    setActionMessage(tr("Active agent switched to %1.")
-                         .arg(model::agentTypeName(gameState.turn.activeCard.agent)),
-                     false);
+    setActionMessage(result.message, false);
     updateHud();
     update();
 }
 
 void BoardView::handleScoutMarkAction()
 {
-    QString error;
-    if (!model::scoutMarkCurrentPlayer(gameState, error)) {
-        setActionMessage(error, true);
+    const model::CommandResult result = session.execute(model::ScoutMarkCommand{});
+    if (!result.ok) {
+        setActionMessage(result.message, true);
         return;
     }
 
-    actionUsedThisTurn = true;
-    setActionMessage(tr("Scout marked current cell."), false);
+    setActionMessage(result.message, false);
     updateHud();
     update();
 }
 
 void BoardView::handleSergeantControlAction()
 {
-    QString error;
-    if (!model::sergeantControlCurrentPlayer(gameState, error)) {
-        setActionMessage(error, true);
+    const model::CommandResult result = session.execute(model::SergeantControlCommand{});
+    if (!result.ok) {
+        setActionMessage(result.message, true);
         return;
     }
 
-    actionUsedThisTurn = true;
-    setActionMessage(tr("Sergeant controlled current cell."), false);
+    setActionMessage(result.message, false);
     updateHud();
     update();
 }
 
 void BoardView::handleSergeantReleaseAction()
 {
-    QString error;
-    if (!model::sergeantReleaseCurrentPlayer(gameState, error)) {
-        setActionMessage(error, true);
+    const model::CommandResult result = session.execute(model::SergeantReleaseCommand{});
+    if (!result.ok) {
+        setActionMessage(result.message, true);
         return;
     }
 
-    actionUsedThisTurn = true;
-    setActionMessage(tr("Sergeant released enemy-controlled cell."), false);
+    setActionMessage(result.message, false);
     updateHud();
     update();
 }
 
 void BoardView::handleEndTurn()
 {
-    if (gameState.status == model::GameStatus::InProgress &&
-        gameState.turn.hasActiveCard &&
-        !actionUsedThisTurn) {
-        setActionMessage(tr("You must perform an action before ending the turn."), true);
-        return;
-    }
-
-    QString error;
-    if (!model::endTurn(gameState, error)) {
-        setActionMessage(error, true);
+    const model::CommandResult result = session.execute(model::EndTurnCommand{});
+    if (!result.ok) {
+        setActionMessage(result.message, true);
         return;
     }
 
     selectedCellId.clear();
-    actionUsedThisTurn = false;
-
-    if (gameState.status == model::GameStatus::InProgress) {
-        model::Card drawn{};
-        if (!model::drawTurnCard(gameState, drawn, error)) {
-            setActionMessage(error, true);
-            updateHud();
-            return;
-        }
-        setActionMessage(tr("Turn passed to %1.").arg(playerDisplayName(gameState.turn.currentPlayer)), false);
-    } else {
-        setActionMessage(gameStatusText(), false);
-    }
-
+    setActionMessage(result.message, false);
     updateHud();
     update();
 }

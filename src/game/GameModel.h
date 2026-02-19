@@ -8,4 +8,8 @@
 #include "model/Types.h"
 #include "rules/Victory.h"
 #include "scenario/ScenarioLoader.h"
+#include "session/SessionTypes.h"
+#include "session/TurnEngine.h"
+#include "session/GameSession.h"
+#include "session/ActionCommand.h"
 #include "turn/TurnSystem.h"

@@ -30,6 +30,13 @@ add_executable(QtHello
     src/game/actions/TacticalActions.cpp
     src/game/scenario/ScenarioLoader.h
     src/game/scenario/ScenarioLoader.cpp
+    src/game/session/SessionTypes.h
+    src/game/session/TurnEngine.h
+    src/game/session/TurnEngine.cpp
+    src/game/session/GameSession.h
+    src/game/session/GameSession.cpp
+    src/game/session/ActionCommand.h
+    src/game/session/ActionCommand.cpp
     src/game/turn/TurnSystem.h
     src/game/turn/TurnSystem.cpp
     src/ui/SplashScreen.cpp
