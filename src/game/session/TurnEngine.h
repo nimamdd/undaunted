@@ -14,7 +14,6 @@ public:
     void onTurnEnded();
 
     bool canUsePrimaryAction(const GameState &state, QString &errorMessage) const;
-    bool canSwitchAgent(const GameState &state, QString &errorMessage) const;
     bool canEndTurn(const GameState &state, QString &errorMessage) const;
 
 private:

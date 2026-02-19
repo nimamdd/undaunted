@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SessionTypes.h"
+#include "../agents/AgentBehavior.h"
 
 #include <QString>
 
@@ -35,28 +36,14 @@ private:
     QString targetCellId_;
 };
 
-class ScoutMarkCommand final : public ActionCommand
+class UseAgentSpecialCommand final : public ActionCommand
 {
 public:
+    explicit UseAgentSpecialCommand(AgentSpecialAction action);
     CommandResult execute(GameSession &session) const override;
-};
 
-class SergeantControlCommand final : public ActionCommand
-{
-public:
-    CommandResult execute(GameSession &session) const override;
-};
-
-class SergeantReleaseCommand final : public ActionCommand
-{
-public:
-    CommandResult execute(GameSession &session) const override;
-};
-
-class SwitchAgentCommand final : public ActionCommand
-{
-public:
-    CommandResult execute(GameSession &session) const override;
+private:
+    AgentSpecialAction action_;
 };
 
 class EndTurnCommand final : public ActionCommand

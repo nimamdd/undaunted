@@ -1,5 +1,6 @@
 #include "Combat.h"
 
+#include "../agents/AgentBehavior.h"
 #include "../board/BoardGraph.h"
 #include "../model/Init.h"
 #include "../rules/Victory.h"
@@ -10,20 +11,6 @@
 namespace model {
 
 namespace {
-
-bool validateCurrentCard(const GameState &state, AgentType expected, QString &errorMessage)
-{
-    if (!state.turn.hasActiveCard) {
-        errorMessage = QStringLiteral("No active card for current turn.");
-        return false;
-    }
-    if (state.turn.activeCard.agent != expected) {
-        errorMessage = QStringLiteral("Current active card does not match %1.")
-                           .arg(agentTypeName(expected));
-        return false;
-    }
-    return true;
-}
 
 std::optional<AgentType> occupantForOwner(const CellNode *cell, PlayerId owner)
 {
@@ -83,6 +70,11 @@ bool canAttack(const GameState &state,
                const QString &targetCellId,
                QString &errorMessage)
 {
+    if (behaviorFor(attackerType) == nullptr) {
+        errorMessage = QStringLiteral("Unsupported attacker agent type.");
+        return false;
+    }
+
     if (state.status != GameStatus::InProgress) {
         errorMessage = QStringLiteral("Game is already finished.");
         return false;
@@ -200,7 +192,13 @@ AttackResult attack(GameState &state,
     result.targetOwner = targetOwner;
     result.targetType = targetType;
 
-    const int diceCount = (attackerType == AgentType::Sniper) ? 3 : 1;
+    const AgentBehavior *behavior = behaviorFor(attackerType);
+    if (behavior == nullptr) {
+        result.errorMessage = QStringLiteral("Unsupported attacker agent type.");
+        return result;
+    }
+
+    const int diceCount = behavior->attackDiceCount();
     result.rolls.reserve(diceCount);
     bool success = false;
 
@@ -245,23 +243,6 @@ AttackResult attack(GameState &state,
 
     updateGameStatus(state);
     return result;
-}
-
-AttackResult attackCurrentPlayer(GameState &state,
-                                 AgentType attackerType,
-                                 const QString &targetCellId)
-{
-    AttackResult result;
-    QString error;
-    if (!validateCurrentCard(state, attackerType, error)) {
-        result.errorMessage = error;
-        result.attackerOwner = state.turn.currentPlayer;
-        result.attackerType = attackerType;
-        result.targetCellId = targetCellId;
-        return result;
-    }
-
-    return attack(state, state.turn.currentPlayer, attackerType, targetCellId);
 }
 
 } // namespace model

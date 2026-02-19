@@ -75,20 +75,6 @@ bool validateAgentReady(const GameState &state,
     return true;
 }
 
-bool validateCurrentCard(const GameState &state, AgentType expected, QString &errorMessage)
-{
-    if (!state.turn.hasActiveCard) {
-        errorMessage = QStringLiteral("No active card for current turn.");
-        return false;
-    }
-    if (state.turn.activeCard.agent != expected) {
-        errorMessage = QStringLiteral("Current active card does not match %1.")
-                           .arg(agentTypeName(expected));
-        return false;
-    }
-    return true;
-}
-
 } // namespace
 
 bool canScoutMark(const GameState &state, PlayerId owner, QString &errorMessage)
@@ -135,14 +121,6 @@ bool scoutMark(GameState &state, PlayerId owner, QString &errorMessage)
     return true;
 }
 
-bool scoutMarkCurrentPlayer(GameState &state, QString &errorMessage)
-{
-    if (!validateCurrentCard(state, AgentType::Scout, errorMessage)) {
-        return false;
-    }
-    return scoutMark(state, state.turn.currentPlayer, errorMessage);
-}
-
 bool canSergeantControl(const GameState &state, PlayerId owner, QString &errorMessage)
 {
     if (state.status != GameStatus::InProgress) {
@@ -184,14 +162,6 @@ bool sergeantControl(GameState &state, PlayerId owner, QString &errorMessage)
     return true;
 }
 
-bool sergeantControlCurrentPlayer(GameState &state, QString &errorMessage)
-{
-    if (!validateCurrentCard(state, AgentType::Sergeant, errorMessage)) {
-        return false;
-    }
-    return sergeantControl(state, state.turn.currentPlayer, errorMessage);
-}
-
 bool canSergeantRelease(const GameState &state, PlayerId owner, QString &errorMessage)
 {
     if (state.status != GameStatus::InProgress) {
@@ -231,14 +201,6 @@ bool sergeantRelease(GameState &state, PlayerId owner, QString &errorMessage)
     cell->controlledBy = PlayerId::None;
     updateGameStatus(state);
     return true;
-}
-
-bool sergeantReleaseCurrentPlayer(GameState &state, QString &errorMessage)
-{
-    if (!validateCurrentCard(state, AgentType::Sergeant, errorMessage)) {
-        return false;
-    }
-    return sergeantRelease(state, state.turn.currentPlayer, errorMessage);
 }
 
 } // namespace model

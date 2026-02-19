@@ -1,28 +1,14 @@
 #include "Movement.h"
 
+#include "../agents/AgentBehavior.h"
 #include "../board/BoardGraph.h"
 #include "../model/Init.h"
-#include "../turn/TurnSystem.h"
 
 #include <QStringList>
 
 namespace model {
 
 namespace {
-
-bool isMarkedForOwner(const CellNode *cell, PlayerId owner)
-{
-    if (cell == nullptr) {
-        return false;
-    }
-    if (owner == PlayerId::A) {
-        return cell->markedByA;
-    }
-    if (owner == PlayerId::B) {
-        return cell->markedByB;
-    }
-    return false;
-}
 
 bool isOccupied(const CellNode *cell)
 {
@@ -46,6 +32,11 @@ bool isNeighbor(const CellNode *from, const CellNode *to)
 
 QVector<const CellNode *> movableNeighbors(const GameState &state, PlayerId owner, AgentType type)
 {
+    const AgentBehavior *behavior = behaviorFor(type);
+    if (behavior == nullptr) {
+        return {};
+    }
+
     const PlayerState *player = playerById(state, owner);
     if (player == nullptr) {
         return {};
@@ -67,7 +58,8 @@ QVector<const CellNode *> movableNeighbors(const GameState &state, PlayerId owne
             continue;
         }
 
-        if (type != AgentType::Scout && !isMarkedForOwner(neighbor, owner)) {
+        QString moveError;
+        if (!behavior->canMoveTo(state, owner, neighbor, moveError)) {
             continue;
         }
 
@@ -78,6 +70,12 @@ QVector<const CellNode *> movableNeighbors(const GameState &state, PlayerId owne
 
 bool canMoveAgent(const GameState &state, PlayerId owner, AgentType type, const QString &toCellId, QString &errorMessage)
 {
+    const AgentBehavior *behavior = behaviorFor(type);
+    if (behavior == nullptr) {
+        errorMessage = QStringLiteral("Unsupported agent type.");
+        return false;
+    }
+
     if (state.status != GameStatus::InProgress) {
         errorMessage = QStringLiteral("Game is already finished.");
         return false;
@@ -145,9 +143,7 @@ bool canMoveAgent(const GameState &state, PlayerId owner, AgentType type, const 
         return false;
     }
 
-    if (type != AgentType::Scout && !isMarkedForOwner(to, owner)) {
-        errorMessage = QStringLiteral("%1 can only move to marked cells.")
-                           .arg(agentTypeName(type));
+    if (!behavior->canMoveTo(state, owner, to, errorMessage)) {
         return false;
     }
 
@@ -178,21 +174,6 @@ bool moveAgent(GameState &state, PlayerId owner, AgentType type, const QString &
 
     agent->cellId = toCellId;
     return true;
-}
-
-bool moveCurrentPlayerAgent(GameState &state, AgentType type, const QString &toCellId, QString &errorMessage)
-{
-    if (!state.turn.hasActiveCard) {
-        errorMessage = QStringLiteral("No active card for current turn.");
-        return false;
-    }
-
-    if (state.turn.activeCard.agent != type) {
-        errorMessage = QStringLiteral("Current active card does not match selected agent.");
-        return false;
-    }
-
-    return moveAgent(state, state.turn.currentPlayer, type, toCellId, errorMessage);
 }
 
 } // namespace model

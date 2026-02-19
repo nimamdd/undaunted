@@ -18,6 +18,8 @@ add_executable(QtHello
     src/game/model/Types.h
     src/game/model/Init.h
     src/game/model/Init.cpp
+    src/game/agents/AgentBehavior.h
+    src/game/agents/AgentBehavior.cpp
     src/game/rules/Victory.h
     src/game/rules/Victory.cpp
     src/game/board/BoardGraph.h

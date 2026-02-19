@@ -34,7 +34,6 @@ struct Card {
 
 struct DeckState {
     QVector<Card> drawPile;
-    QVector<Card> discardPile;
 };
 
 struct AgentState {

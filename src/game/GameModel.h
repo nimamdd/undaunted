@@ -1,5 +1,6 @@
 #pragma once
 
+#include "agents/AgentBehavior.h"
 #include "board/BoardGraph.h"
 #include "actions/Combat.h"
 #include "actions/Movement.h"

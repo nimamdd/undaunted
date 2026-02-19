@@ -39,9 +39,4 @@ AttackResult attack(GameState &state,
                     AgentType attackerType,
                     const QString &targetCellId);
 
-AttackResult attackCurrentPlayer(GameState &state,
-                                 AgentType attackerType,
-                                 const QString &targetCellId);
-
 } // namespace model
-

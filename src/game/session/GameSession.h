@@ -25,7 +25,6 @@ public:
     bool actionUsedThisTurn() const;
 
     bool canUsePrimaryAction(QString &errorMessage) const;
-    bool canSwitchAgent(QString &errorMessage) const;
     bool canEndTurn(QString &errorMessage) const;
 
     bool activeCardAgent(AgentType &typeOut, QString &errorMessage) const;

@@ -4,7 +4,6 @@
 
 #include "../actions/Combat.h"
 #include "../actions/Movement.h"
-#include "../actions/TacticalActions.h"
 #include "../model/Init.h"
 #include "../turn/TurnSystem.h"
 
@@ -24,7 +23,7 @@ CommandResult success(const QString &message)
     return CommandResult{true, message};
 }
 
-bool resolveCurrentAgent(GameSession &session, AgentType &typeOut, QString &errorMessage)
+bool resolveCurrentAgent(const GameSession &session, AgentType &typeOut, QString &errorMessage)
 {
     return session.activeCardAgent(typeOut, errorMessage);
 }
@@ -38,6 +37,20 @@ QString winnerText(const GameState &state)
         return QStringLiteral("Winner: B");
     }
     return QString();
+}
+
+QString specialActionSuccessMessage(AgentSpecialAction action)
+{
+    switch (action) {
+    case AgentSpecialAction::ScoutMark:
+        return QStringLiteral("Scout marked current cell.");
+    case AgentSpecialAction::SergeantControl:
+        return QStringLiteral("Sergeant controlled current cell.");
+    case AgentSpecialAction::SergeantRelease:
+        return QStringLiteral("Sergeant released enemy-controlled cell.");
+    }
+
+    return QStringLiteral("Special action executed.");
 }
 
 } // namespace
@@ -59,7 +72,11 @@ CommandResult MoveCommand::execute(GameSession &session) const
         return failure(error);
     }
 
-    if (!moveCurrentPlayerAgent(session.state(), type, targetCellId_, error)) {
+    if (!moveAgent(session.state(),
+                   session.state().turn.currentPlayer,
+                   type,
+                   targetCellId_,
+                   error)) {
         return failure(error);
     }
 
@@ -85,7 +102,10 @@ CommandResult AttackCommand::execute(GameSession &session) const
         return failure(error);
     }
 
-    const AttackResult result = attackCurrentPlayer(session.state(), type, targetCellId_);
+    const AttackResult result = attack(session.state(),
+                                       session.state().turn.currentPlayer,
+                                       type,
+                                       targetCellId_);
     if (!result.executed) {
         return failure(result.errorMessage);
     }
@@ -122,64 +142,42 @@ CommandResult AttackCommand::execute(GameSession &session) const
     return success(message);
 }
 
-CommandResult ScoutMarkCommand::execute(GameSession &session) const
+UseAgentSpecialCommand::UseAgentSpecialCommand(AgentSpecialAction action)
+    : action_(action)
+{
+}
+
+CommandResult UseAgentSpecialCommand::execute(GameSession &session) const
 {
     QString error;
     if (!session.canUsePrimaryAction(error)) {
         return failure(error);
     }
 
-    if (!scoutMarkCurrentPlayer(session.state(), error)) {
+    AgentType type{};
+    if (!resolveCurrentAgent(session, type, error)) {
+        return failure(error);
+    }
+
+    const AgentBehavior *behavior = behaviorFor(type);
+    if (behavior == nullptr) {
+        return failure(QStringLiteral("Unsupported active agent type."));
+    }
+
+    if (!behavior->supportsSpecial(action_)) {
+        return failure(QStringLiteral("%1 does not support %2.")
+                           .arg(agentTypeName(type), specialActionName(action_)));
+    }
+
+    if (!behavior->executeSpecial(session.state(),
+                                  session.state().turn.currentPlayer,
+                                  action_,
+                                  error)) {
         return failure(error);
     }
 
     session.markActionUsed();
-    return success(QStringLiteral("Scout marked current cell."));
-}
-
-CommandResult SergeantControlCommand::execute(GameSession &session) const
-{
-    QString error;
-    if (!session.canUsePrimaryAction(error)) {
-        return failure(error);
-    }
-
-    if (!sergeantControlCurrentPlayer(session.state(), error)) {
-        return failure(error);
-    }
-
-    session.markActionUsed();
-    return success(QStringLiteral("Sergeant controlled current cell."));
-}
-
-CommandResult SergeantReleaseCommand::execute(GameSession &session) const
-{
-    QString error;
-    if (!session.canUsePrimaryAction(error)) {
-        return failure(error);
-    }
-
-    if (!sergeantReleaseCurrentPlayer(session.state(), error)) {
-        return failure(error);
-    }
-
-    session.markActionUsed();
-    return success(QStringLiteral("Sergeant released enemy-controlled cell."));
-}
-
-CommandResult SwitchAgentCommand::execute(GameSession &session) const
-{
-    QString error;
-    if (!session.canSwitchAgent(error)) {
-        return failure(error);
-    }
-
-    if (!switchTurnAgent(session.state(), error)) {
-        return failure(error);
-    }
-
-    return success(QStringLiteral("Active agent switched to %1.")
-                       .arg(agentTypeName(session.state().turn.activeCard.agent)));
+    return success(specialActionSuccessMessage(action_));
 }
 
 CommandResult EndTurnCommand::execute(GameSession &session) const

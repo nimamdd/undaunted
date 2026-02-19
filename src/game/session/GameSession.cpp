@@ -75,11 +75,6 @@ bool GameSession::canUsePrimaryAction(QString &errorMessage) const
     return turnEngine_.canUsePrimaryAction(state_, errorMessage);
 }
 
-bool GameSession::canSwitchAgent(QString &errorMessage) const
-{
-    return turnEngine_.canSwitchAgent(state_, errorMessage);
-}
-
 bool GameSession::canEndTurn(QString &errorMessage) const
 {
     return turnEngine_.canEndTurn(state_, errorMessage);

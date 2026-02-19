@@ -94,7 +94,6 @@ void BoardView::setupUi()
 
     moveButton = makeButton(tr("Move"), "ActionButton");
     attackButton = makeButton(tr("Attack"), "ActionButton");
-    switchAgentButton = makeButton(tr("Switch Agent"), "ActionButton");
     markButton = makeButton(tr("Scout Mark"), "ActionButton");
     controlButton = makeButton(tr("Sergeant Control"), "ActionButton");
     releaseButton = makeButton(tr("Sergeant Release"), "ActionButton");
@@ -125,7 +124,6 @@ void BoardView::setupUi()
 
     connect(moveButton, &QPushButton::clicked, this, &BoardView::handleMoveAction);
     connect(attackButton, &QPushButton::clicked, this, &BoardView::handleAttackAction);
-    connect(switchAgentButton, &QPushButton::clicked, this, &BoardView::handleSwitchAgentAction);
     connect(markButton, &QPushButton::clicked, this, &BoardView::handleScoutMarkAction);
     connect(controlButton, &QPushButton::clicked, this, &BoardView::handleSergeantControlAction);
     connect(releaseButton, &QPushButton::clicked, this, &BoardView::handleSergeantReleaseAction);
@@ -334,7 +332,6 @@ void BoardView::updateHud()
         selectedCellLabel->setText(tr("Selected: -"));
         moveButton->setEnabled(false);
         attackButton->setEnabled(false);
-        switchAgentButton->setEnabled(false);
         markButton->setEnabled(false);
         controlButton->setEnabled(false);
         releaseButton->setEnabled(false);
@@ -419,7 +416,6 @@ void BoardView::updateHud()
 
     moveButton->setEnabled(false);
     attackButton->setEnabled(false);
-    switchAgentButton->setEnabled(false);
     markButton->setEnabled(false);
     controlButton->setEnabled(false);
     releaseButton->setEnabled(false);
@@ -427,12 +423,15 @@ void BoardView::updateHud()
     if (canAct) {
         moveButton->setEnabled(true);
         attackButton->setEnabled(true);
-        switchAgentButton->setEnabled(true);
         const model::AgentType type = gameState.turn.activeCard.agent;
-        if (type == model::AgentType::Scout) {
+        const model::AgentBehavior *behavior = model::behaviorFor(type);
+        if (behavior != nullptr && behavior->supportsSpecial(model::AgentSpecialAction::ScoutMark)) {
             markButton->setEnabled(true);
-        } else if (type == model::AgentType::Sergeant) {
+        }
+        if (behavior != nullptr && behavior->supportsSpecial(model::AgentSpecialAction::SergeantControl)) {
             controlButton->setEnabled(true);
+        }
+        if (behavior != nullptr && behavior->supportsSpecial(model::AgentSpecialAction::SergeantRelease)) {
             releaseButton->setEnabled(true);
         }
     }
@@ -478,22 +477,10 @@ void BoardView::handleAttackAction()
     update();
 }
 
-void BoardView::handleSwitchAgentAction()
-{
-    const model::CommandResult result = session.execute(model::SwitchAgentCommand{});
-    if (!result.ok) {
-        setActionMessage(result.message, true);
-        return;
-    }
-
-    setActionMessage(result.message, false);
-    updateHud();
-    update();
-}
-
 void BoardView::handleScoutMarkAction()
 {
-    const model::CommandResult result = session.execute(model::ScoutMarkCommand{});
+    const model::CommandResult result =
+        session.execute(model::UseAgentSpecialCommand(model::AgentSpecialAction::ScoutMark));
     if (!result.ok) {
         setActionMessage(result.message, true);
         return;
@@ -506,7 +493,8 @@ void BoardView::handleScoutMarkAction()
 
 void BoardView::handleSergeantControlAction()
 {
-    const model::CommandResult result = session.execute(model::SergeantControlCommand{});
+    const model::CommandResult result =
+        session.execute(model::UseAgentSpecialCommand(model::AgentSpecialAction::SergeantControl));
     if (!result.ok) {
         setActionMessage(result.message, true);
         return;
@@ -519,7 +507,8 @@ void BoardView::handleSergeantControlAction()
 
 void BoardView::handleSergeantReleaseAction()
 {
-    const model::CommandResult result = session.execute(model::SergeantReleaseCommand{});
+    const model::CommandResult result =
+        session.execute(model::UseAgentSpecialCommand(model::AgentSpecialAction::SergeantRelease));
     if (!result.ok) {
         setActionMessage(result.message, true);
         return;
