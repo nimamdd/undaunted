@@ -53,6 +53,33 @@ QString specialActionSuccessMessage(AgentSpecialAction action)
     return QStringLiteral("Special action executed.");
 }
 
+CommandResult completeTurnAfterAction(GameSession &session, const QString &actionMessage)
+{
+    QString message = actionMessage;
+
+    if (session.state().status != GameStatus::InProgress) {
+        const QString winner = winnerText(session.state());
+        if (!winner.isEmpty()) {
+            message += QStringLiteral(" | %1").arg(winner);
+        }
+        return success(message);
+    }
+
+    QString error;
+    if (!endTurn(session.state(), error)) {
+        return failure(error);
+    }
+
+    Card drawn{};
+    if (!drawTurnCard(session.state(), drawn, error)) {
+        return failure(error);
+    }
+
+    message += QStringLiteral(" | Turn passed to %1.")
+                   .arg(playerIdName(session.state().turn.currentPlayer));
+    return success(message);
+}
+
 } // namespace
 
 MoveCommand::MoveCommand(QString targetCellId)
@@ -80,9 +107,9 @@ CommandResult MoveCommand::execute(GameSession &session) const
         return failure(error);
     }
 
-    session.markActionUsed();
-    return success(QStringLiteral("%1 moved to %2.")
-                       .arg(agentTypeName(type), targetCellId_));
+    return completeTurnAfterAction(
+        session,
+        QStringLiteral("%1 moved to %2.").arg(agentTypeName(type), targetCellId_));
 }
 
 AttackCommand::AttackCommand(QString targetCellId)
@@ -131,15 +158,7 @@ CommandResult AttackCommand::execute(GameSession &session) const
         message += QStringLiteral(" | Miss");
     }
 
-    if (session.state().status != GameStatus::InProgress) {
-        const QString winner = winnerText(session.state());
-        if (!winner.isEmpty()) {
-            message += QStringLiteral(" | %1").arg(winner);
-        }
-    }
-
-    session.markActionUsed();
-    return success(message);
+    return completeTurnAfterAction(session, message);
 }
 
 UseAgentSpecialCommand::UseAgentSpecialCommand(AgentSpecialAction action)
@@ -176,39 +195,7 @@ CommandResult UseAgentSpecialCommand::execute(GameSession &session) const
         return failure(error);
     }
 
-    session.markActionUsed();
-    return success(specialActionSuccessMessage(action_));
-}
-
-CommandResult EndTurnCommand::execute(GameSession &session) const
-{
-    QString error;
-    if (!session.canEndTurn(error)) {
-        return failure(error);
-    }
-
-    if (!endTurn(session.state(), error)) {
-        return failure(error);
-    }
-
-    session.onTurnEnded();
-
-    if (session.state().status == GameStatus::InProgress) {
-        Card drawn{};
-        if (!drawTurnCard(session.state(), drawn, error)) {
-            return failure(error);
-        }
-
-        return success(QStringLiteral("Turn passed to %1.")
-                           .arg(playerIdName(session.state().turn.currentPlayer)));
-    }
-
-    const QString winner = winnerText(session.state());
-    if (!winner.isEmpty()) {
-        return success(winner);
-    }
-
-    return success(QStringLiteral("Game finished."));
+    return completeTurnAfterAction(session, specialActionSuccessMessage(action_));
 }
 
 } // namespace model

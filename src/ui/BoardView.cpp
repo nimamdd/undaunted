@@ -98,7 +98,6 @@ void BoardView::setupUi()
     controlButton = makeButton(tr("Sergeant Control"), "ActionButton");
     releaseButton = makeButton(tr("Sergeant Release"), "ActionButton");
 
-    endTurnButton = makeButton(tr("End Turn"), "EndTurnButton");
     menuButton = makeButton(tr("Back To Menu"), "MenuButton");
 
     panelLayout->addSpacing(8);
@@ -127,7 +126,6 @@ void BoardView::setupUi()
     connect(markButton, &QPushButton::clicked, this, &BoardView::handleScoutMarkAction);
     connect(controlButton, &QPushButton::clicked, this, &BoardView::handleSergeantControlAction);
     connect(releaseButton, &QPushButton::clicked, this, &BoardView::handleSergeantReleaseAction);
-    connect(endTurnButton, &QPushButton::clicked, this, &BoardView::handleEndTurn);
     connect(menuButton, &QPushButton::clicked, this, [this]() { close(); });
 }
 
@@ -163,7 +161,6 @@ void BoardView::setupStyles()
             font-weight: 700;
         }
         QPushButton#ActionButton,
-        QPushButton#EndTurnButton,
         QPushButton#MenuButton {
             border: none;
             border-radius: 10px;
@@ -179,10 +176,6 @@ void BoardView::setupStyles()
         QPushButton#ActionButton:disabled {
             background: #4d5964;
             color: #c8ced6;
-        }
-        QPushButton#EndTurnButton {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                        stop:0 #9b5d31, stop:1 #723c19);
         }
         QPushButton#MenuButton {
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
@@ -335,7 +328,6 @@ void BoardView::updateHud()
         markButton->setEnabled(false);
         controlButton->setEnabled(false);
         releaseButton->setEnabled(false);
-        endTurnButton->setEnabled(false);
         return;
     }
 
@@ -412,7 +404,7 @@ void BoardView::updateHud()
     }
 
     const bool inProgress = (gameState.status == model::GameStatus::InProgress);
-    const bool canAct = inProgress && gameState.turn.hasActiveCard && !session.actionUsedThisTurn();
+    const bool canAct = inProgress && gameState.turn.hasActiveCard;
 
     moveButton->setEnabled(false);
     attackButton->setEnabled(false);
@@ -436,7 +428,6 @@ void BoardView::updateHud()
         }
     }
 
-    endTurnButton->setEnabled(inProgress && gameState.turn.hasActiveCard && session.actionUsedThisTurn());
 }
 
 void BoardView::handleMoveAction()
@@ -453,6 +444,7 @@ void BoardView::handleMoveAction()
         return;
     }
 
+    selectedCellId.clear();
     setActionMessage(result.message, false);
     updateHud();
     update();
@@ -472,6 +464,7 @@ void BoardView::handleAttackAction()
         return;
     }
 
+    selectedCellId.clear();
     setActionMessage(result.message, false);
     updateHud();
     update();
@@ -486,6 +479,7 @@ void BoardView::handleScoutMarkAction()
         return;
     }
 
+    selectedCellId.clear();
     setActionMessage(result.message, false);
     updateHud();
     update();
@@ -500,6 +494,7 @@ void BoardView::handleSergeantControlAction()
         return;
     }
 
+    selectedCellId.clear();
     setActionMessage(result.message, false);
     updateHud();
     update();
@@ -509,19 +504,6 @@ void BoardView::handleSergeantReleaseAction()
 {
     const model::CommandResult result =
         session.execute(model::UseAgentSpecialCommand(model::AgentSpecialAction::SergeantRelease));
-    if (!result.ok) {
-        setActionMessage(result.message, true);
-        return;
-    }
-
-    setActionMessage(result.message, false);
-    updateHud();
-    update();
-}
-
-void BoardView::handleEndTurn()
-{
-    const model::CommandResult result = session.execute(model::EndTurnCommand{});
     if (!result.ok) {
         setActionMessage(result.message, true);
         return;

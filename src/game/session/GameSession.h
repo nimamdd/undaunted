@@ -22,15 +22,10 @@ public:
     CommandResult execute(const ActionCommand &command);
 
     bool isLoaded() const;
-    bool actionUsedThisTurn() const;
 
     bool canUsePrimaryAction(QString &errorMessage) const;
-    bool canEndTurn(QString &errorMessage) const;
 
     bool activeCardAgent(AgentType &typeOut, QString &errorMessage) const;
-
-    void markActionUsed();
-    void onTurnEnded();
 
     GameState &state();
     const GameState &state() const;

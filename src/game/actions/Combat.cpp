@@ -226,9 +226,6 @@ AttackResult attack(GameState &state,
     result.cardBurned = true;
 
     AgentState *targetAgent = findAgent(*targetPlayer, targetType);
-    if (targetAgent != nullptr && targetAgent->hp > 0) {
-        targetAgent->hp -= 1;
-    }
 
     if (countCards(*targetPlayer, targetType) == 0) {
         CellNode *targetCell = findCell(state.board, targetCellId);

@@ -46,10 +46,4 @@ private:
     AgentSpecialAction action_;
 };
 
-class EndTurnCommand final : public ActionCommand
-{
-public:
-    CommandResult execute(GameSession &session) const override;
-};
-
 } // namespace model

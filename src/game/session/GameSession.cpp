@@ -65,19 +65,9 @@ bool GameSession::isLoaded() const
     return loaded_;
 }
 
-bool GameSession::actionUsedThisTurn() const
-{
-    return turnEngine_.actionUsedThisTurn();
-}
-
 bool GameSession::canUsePrimaryAction(QString &errorMessage) const
 {
     return turnEngine_.canUsePrimaryAction(state_, errorMessage);
-}
-
-bool GameSession::canEndTurn(QString &errorMessage) const
-{
-    return turnEngine_.canEndTurn(state_, errorMessage);
 }
 
 bool GameSession::activeCardAgent(AgentType &typeOut, QString &errorMessage) const
@@ -89,16 +79,6 @@ bool GameSession::activeCardAgent(AgentType &typeOut, QString &errorMessage) con
 
     typeOut = state_.turn.activeCard.agent;
     return true;
-}
-
-void GameSession::markActionUsed()
-{
-    turnEngine_.markActionUsed();
-}
-
-void GameSession::onTurnEnded()
-{
-    turnEngine_.onTurnEnded();
 }
 
 GameState &GameSession::state()

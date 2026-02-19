@@ -42,7 +42,6 @@ private:
     void handleScoutMarkAction();
     void handleSergeantControlAction();
     void handleSergeantReleaseAction();
-    void handleEndTurn();
 
     QRectF boardAreaRect() const;
     QPolygonF hexPolygon(const QPointF &center, double radius) const;
@@ -75,7 +74,6 @@ private:
     QPushButton *markButton = nullptr;
     QPushButton *controlButton = nullptr;
     QPushButton *releaseButton = nullptr;
-    QPushButton *endTurnButton = nullptr;
     QWidget *sidePanel = nullptr;
 
     QHash<QString, QPolygonF> cellPolygons;
